@@ -1,0 +1,11 @@
+aiofiles
+types-aiofiles
+fastapi
+uvicorn[standard]
+httpx
+pytest
+pytest-asyncio
+pandas
+sqlalchemy[mypy]
+psycopg2
+
