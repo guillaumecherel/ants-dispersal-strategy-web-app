@@ -1,0 +1,37 @@
+version: '3.3'
+services:
+    openmole:
+        image: openmole/openmole:latest
+        command: openmole-docker --rest --password ""
+        # docker run --rm --privileged -p 8080:8080 openmole/openmole:latest     openmole --port 8080 --reset --reset-password --rest --password ""
+        ports:
+            - "8080:8080"
+        privileged: true
+        restart: on-failure:100000
+    db:
+        image: postgres:13.4-buster
+        user: postgres
+        environment:
+            POSTGRES_PASSWORD: pass
+            POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+            # Needed for database to initialize correctly with an alternative
+            # auth method. See https://hub.docker.com/_/postgres/
+            POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+        volumes:
+            - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+        ports:
+            - 5432:5432
+    backend:
+        build: 
+            context: backend/
+            args:
+                LOCAL_SRC: ${LOCAL_SRC}
+        volumes:
+            # TODO supprimer quand JOB_REPO est une addresse distante
+            - /home/guillaume/Work/Dev/2021/continuous-modelling-test-experiment:$JOB_REPO
+            - ./backend:${LOCAL_SRC}/backend
+        environment:
+            LOCAL_SRC: ${LOCAL_SRC}
+            PYTHONPATH: ${LOCAL_SRC}/backend/src/
+
+
