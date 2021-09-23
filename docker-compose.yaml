@@ -5,7 +5,7 @@ services:
         command: openmole-docker --rest --password ""
         # docker run --rm --privileged -p 8080:8080 openmole/openmole:latest     openmole --port 8080 --reset --reset-password --rest --password ""
         ports:
-            - "8080:8080"
+            - ${OPENMOLE_PORT}:${OPENMOLE_PORT}
         privileged: true
         restart: on-failure:100000
     db:
@@ -17,21 +17,24 @@ services:
             # Needed for database to initialize correctly with an alternative
             # auth method. See https://hub.docker.com/_/postgres/
             POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-        volumes:
-            - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
         ports:
-            - 5432:5432
+            - ${DB_PORT}:${DB_PORT}
     backend:
-        build: 
+        build:
             context: backend/
             args:
                 LOCAL_SRC: ${LOCAL_SRC}
+                JOB_REPO_LOCAL: ${JOB_REPO_LOCAL}
+                BACKEND_PORT: ${BACKEND_PORT}
+        ports:
+            - 8888:8888/tcp
         volumes:
-            # TODO supprimer quand JOB_REPO est une addresse distante
-            - /home/guillaume/Work/Dev/2021/continuous-modelling-test-experiment:$JOB_REPO
-            - ./backend:${LOCAL_SRC}/backend
+            # TESTING
+            - /home/guillaume/Work/Dev/2021/AntsDispersalStrategyWebApp/test-job:$JOB_REPO_ORIGIN
         environment:
-            LOCAL_SRC: ${LOCAL_SRC}
-            PYTHONPATH: ${LOCAL_SRC}/backend/src/
+            DB_HOST: ${DB_HOST}
+            DB_PORT: ${DB_PORT}
+            OPENMOLE_HOST: ${OPENMOLE_HOST}
+            OPENMOLE_PORT: ${OPENMOLE_PORT}
 
 

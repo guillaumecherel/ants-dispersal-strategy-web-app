@@ -1,9 +1,9 @@
 from asyncio import sleep, gather, create_task
-from data import Run, Code
-from constants import *
-import openmole
-import db
-from util import do_nothing, logger
+from src.data import Run, Code
+from src.constants import *
+import src.openmole
+import src.db
+from src.util import do_nothing, logger
 
 async def do_run(run: Run) -> int:
     logs, om_run_id = await openmole.send_job(REPOSITORY_PATH, run)

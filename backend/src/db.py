@@ -1,13 +1,13 @@
 # TODO: make interaction with the db asynchronous
 
-import data
+import src.data as data
 from typing import Optional, Tuple
-from util import logger
+from src.util import logger
 from pprint import pformat
 from sqlalchemy import create_engine, text, Table, MetaData, Column, Integer, \
         Float, String, DateTime, Enum, ForeignKey, select, update
 from sqlalchemy.orm import declarative_base, relationship, Session
-from constants import DB_URI, DB_USER, DB_PASSWORD
+from src.constants import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
 import urllib
 from datetime import datetime
 
@@ -270,7 +270,7 @@ def delete_run(run_id: int) -> None:
 
 
 engine = create_engine(
-        f"postgresql+psycopg2://{DB_USER}:{urllib.parse.quote_plus(DB_PASSWORD)}@{DB_URI}/postgres",
+        f"postgresql+psycopg2://{DB_USER}:{urllib.parse.quote_plus(DB_PASSWORD)}@{DB_HOST}:{DB_PORT}/postgres",
         echo = True,
         future = True)
 

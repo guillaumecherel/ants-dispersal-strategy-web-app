@@ -4,7 +4,7 @@ from enum import Enum
 from datetime import datetime
 from typing import Tuple, Union, TextIO, Iterable
 from math import floor
-from constants import *
+from src.constants import *
 from textwrap import dedent, indent
 from itertools import chain
 import csv

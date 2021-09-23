@@ -3,12 +3,12 @@ from aiofiles import open
 from asyncio import gather
 from pydantic import BaseModel
 from typing import AsyncIterator, Tuple, Optional, TextIO
-from data import Code, RunState, Logs, Log, Run, PosteriorSample, Colony, \
+from src.data import Code, RunState, Logs, Log, Run, PosteriorSample, Colony, \
         list_colonies, RunOutput, log_now
 from httpx import AsyncClient
 from repository import pack
-from constants import *
-from util import logger
+from src.constants import *
+from src.util import logger
 from os import path
 from io import BytesIO
 
@@ -22,7 +22,7 @@ async def send_job(repository_path: str, run: Run) -> Tuple[Logs, Optional["RunI
         async with AsyncClient() as client:
             async with open(archive, "rb") as f:
                 content = await f.read()
-                response = await client.post(f"http://{OPENMOLE_URI}:{OPENMOLE_PORT}/job",
+                response = await client.post(f"http://{OPENMOLE_HOST}:{OPENMOLE_PORT}/job",
                         files = {
                             'workDirectory': content,
                         },
@@ -67,7 +67,7 @@ async def watch_run(run: Run, run_id: "RunId") -> AsyncIterator[Tuple[Optional[R
 
 async def get_run_state(run: Run, run_id: "RunId") -> Tuple[Logs, Optional[RunState]]:
     async with AsyncClient() as client:
-        response = await client.get(f"http://{OPENMOLE_URI}:{OPENMOLE_PORT}/job/{run_id.val}/state")
+        response = await client.get(f"http://{OPENMOLE_HOST}:{OPENMOLE_PORT}/job/{run_id.val}/state")
 
     json = response.json()
     if "state" in json:
@@ -112,7 +112,7 @@ async def get_run_state(run: Run, run_id: "RunId") -> Tuple[Logs, Optional[RunSt
 
 async def get_run_output(run: Run, run_id: "RunId") -> RunOutput:
     async with AsyncClient() as client:
-        response = await client.get(f"http://{OPENMOLE_URI}:{OPENMOLE_PORT}/job/{run_id.val}/output")
+        response = await client.get(f"http://{OPENMOLE_HOST}:{OPENMOLE_PORT}/job/{run_id.val}/output")
 
     return RunOutput(text = response.text)
 
@@ -126,7 +126,7 @@ async def get_results(run: Run, run_id: "RunId") -> Tuple[Logs, Optional[Posteri
 async def get_most_recent_filenames(run: Run, run_id: "RunId") -> Tuple[Logs, list[Tuple[Colony, str]]]:
 
     def route(colony: Colony) -> str:
-        return f"http://{OPENMOLE_URI}:{OPENMOLE_PORT}/job/{run_id.val}/workDirectory/{run.output_dir}/ResultsABC_5params/posteriorSample_{colony.colony_id}"
+        return f"http://{OPENMOLE_HOST}:{OPENMOLE_PORT}/job/{run_id.val}/workDirectory/{run.output_dir}/ResultsABC_5params/posteriorSample_{colony.colony_id}"
 
     async with AsyncClient() as client:
         data = {"last": 1}
@@ -160,7 +160,7 @@ async def get_most_recent_filenames(run: Run, run_id: "RunId") -> Tuple[Logs, li
 async def get_results_from_filenames(run: Run, run_id: "RunId", filenames: list[Tuple[Colony, str]]) -> Tuple[Logs, Optional[PosteriorSample]]:
 
     def route(colony: Colony, filename: str) -> str:
-        return f"http://{OPENMOLE_URI}:{OPENMOLE_PORT}/job/{run_id.val}/workDirectory/{run.output_dir}/ResultsABC_5params/posteriorSample_{colony.colony_id}/{filename}"
+        return f"http://{OPENMOLE_HOST}:{OPENMOLE_PORT}/job/{run_id.val}/workDirectory/{run.output_dir}/ResultsABC_5params/posteriorSample_{colony.colony_id}/{filename}"
 
     async with AsyncClient() as client:
         responses = await gather(*[client.get(route(col, filename))
