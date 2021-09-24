@@ -22,5 +22,9 @@ COPY ./src $LOCAL_SRC/backend/src
 ARG BACKEND_PORT
 ENV BACKEND_PORT=$BACKEND_PORT
 
+ARG JOB_REPO_ORIGIN
+RUN mkdir -p $JOB_REPO_LOCAL
+RUN git clone $JOB_REPO_ORIGIN $JOB_REPO_LOCAL
+
 CMD venv-backend/bin/uvicorn src.app:app --host 0.0.0.0 --port $BACKEND_PORT
 

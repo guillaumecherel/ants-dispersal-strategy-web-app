@@ -1,5 +1,5 @@
 import pytest
-from data import *
+from src.data import *
 from datetime import datetime
 
 code1 = Code(commit_hash = "code1hash", description = "whatevs", branch="test")

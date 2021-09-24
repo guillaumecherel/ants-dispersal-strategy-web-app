@@ -6,13 +6,30 @@ from fastapi import FastAPI, Response, status
 from markupsafe import escape
 from datetime import datetime
 from src.data import Code, RunState, Run, RunOutput, Logs, PosteriorSample, Log
-import src.db
+from src import db
+from src.tasks import do_run
 
 app = FastAPI()
 
 @app.get("/launch/{commit_hash}")
-async def launch(commit_hash: str, timestamp: str) -> str:
-    return f"<p>run_id = {escape(commit_hash)+escape(timestamp)}</p>"
+async def launch(
+        commit_hash: str,
+        branch: str,
+        description: str,
+        timestamp: str,
+        job_dir: str,
+        output_dir: str,
+        script: str) -> int:
+    run = Run(
+            code = Code(
+                commit_hash = commit_hash,
+                branch = branch,
+                description = description),
+            timestamp = timestamp,
+            job_dir = job_dir,
+            output_dir = output_dir,
+            script = script)
+    return await do_run(run)
 
 
 @app.get("/all_runs")

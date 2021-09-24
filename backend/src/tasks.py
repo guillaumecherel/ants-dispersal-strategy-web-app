@@ -1,8 +1,8 @@
 from asyncio import sleep, gather, create_task
 from src.data import Run, Code
 from src.constants import *
-import src.openmole
-import src.db
+from src import openmole
+from src import db
 from src.util import do_nothing, logger
 
 async def do_run(run: Run) -> int:

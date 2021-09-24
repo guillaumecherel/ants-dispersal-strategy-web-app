@@ -11,8 +11,8 @@ import csv
 
 class Code(BaseModel, frozen=True, orm_mode = True):
     commit_hash: str
-    description: str
     branch: str
+    description: str
 
 
 class Run(BaseModel, frozen=True, orm_mode = True):

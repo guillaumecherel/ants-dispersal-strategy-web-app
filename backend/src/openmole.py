@@ -6,7 +6,7 @@ from typing import AsyncIterator, Tuple, Optional, TextIO
 from src.data import Code, RunState, Logs, Log, Run, PosteriorSample, Colony, \
         list_colonies, RunOutput, log_now
 from httpx import AsyncClient
-from repository import pack
+from src.repository import pack
 from src.constants import *
 from src.util import logger
 from os import path
@@ -26,7 +26,9 @@ async def send_job(repository_path: str, run: Run) -> Tuple[Logs, Optional["RunI
                         files = {
                             'workDirectory': content,
                         },
-                        data = {'script': path.join(run.job_dir, run.script)})
+                        data = {'script': path.join(run.job_dir, run.script)},
+                        timeout = OPENMOLE_SEND_JOB_TIMEOUT,
+                        auth=("", OPENMOLE_PASSWORD))
 
         logger.info(f"send_job query: {response.text}")
 

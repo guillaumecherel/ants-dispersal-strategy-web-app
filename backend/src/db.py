@@ -269,6 +269,7 @@ def delete_run(run_id: int) -> None:
         session.commit()
 
 
+# TODO: wait if postgresql not available yet
 engine = create_engine(
         f"postgresql+psycopg2://{DB_USER}:{urllib.parse.quote_plus(DB_PASSWORD)}@{DB_HOST}:{DB_PORT}/postgres",
         echo = True,

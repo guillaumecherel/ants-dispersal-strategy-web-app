@@ -1,8 +1,8 @@
 import pytest
-import openmole
-import db
-import tasks
-from data import *
+from src import openmole
+from src import db
+from src import tasks
+from src.data import *
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from datetime import datetime

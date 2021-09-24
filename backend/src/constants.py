@@ -1,15 +1,21 @@
 import os
 
-# TODO make these environments variables?
-COLONY_COUNT = 19
-OPENMOLE_HOST = os.getenv("OPENMOLE_HOST")
-OPENMOLE_PORT = os.getenv("OPENMOLE_PORT")
-REPOSITORY_PATH = os.getenv("JOB_REPO_LOCAL")
-OPENMOLE_STATE_PULL_DELAY = 1 # seconds
-OPENMOLE_USER = ""
-OPENMOLE_PASSWORD = ""
-TMP_DIR = "/tmp/ants_dispersal_strategy"
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_USER = "postgres"
-DB_PASSWORD = "pass"
+def getenv_checked(env_name: str) -> str:
+    env = os.getenv(env_name)
+    if env is None:
+        raise ValueError(f"Environment variable {env_name} must be defined.")
+    else:
+        return env
+
+COLONY_COUNT = int(getenv_checked("COLONY_COUNT"))
+OPENMOLE_HOST = getenv_checked("OPENMOLE_HOST")
+OPENMOLE_SEND_JOB_TIMEOUT = int(getenv_checked("OPENMOLE_SEND_JOB_TIMEOUT"))
+OPENMOLE_PORT = getenv_checked("OPENMOLE_PORT")
+OPENMOLE_STATE_PULL_DELAY = int(getenv_checked("OPENMOLE_STATE_PULL_DELAY"))
+OPENMOLE_PASSWORD = getenv_checked("OPENMOLE_PASSWORD")
+DB_HOST = getenv_checked("DB_HOST")
+DB_PORT = getenv_checked("DB_PORT")
+DB_USER = getenv_checked("DB_USER")
+DB_PASSWORD = getenv_checked("DB_PASSWORD")
+REPOSITORY_PATH = getenv_checked("JOB_REPO_LOCAL")
+TMP_DIR = getenv_checked("TMP_DIR")
