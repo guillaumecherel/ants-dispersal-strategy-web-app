@@ -2,7 +2,7 @@ version: '3.3'
 services:
     openmole:
         image: openmole/openmole:latest
-        command: openmole-docker --rest --password ${OPENMOLE_PASSWORD}
+        command: openmole-docker --rest --port ${OPENMOLE_PORT} --password ${OPENMOLE_PASSWORD} 
         # docker run --rm --privileged -p 8080:8080 openmole/openmole:latest     openmole --port 8080 --reset --reset-password --rest --password ""
         ports:
             - ${OPENMOLE_PORT}:${OPENMOLE_PORT}
