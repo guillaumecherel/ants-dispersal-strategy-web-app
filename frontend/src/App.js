@@ -160,7 +160,7 @@ function NewRunSetupTool(props) {
       <StartNewRunFeedbackArea
         launchFeedback={launchFeedback}
       />
-      </div>
+    </div>
   );
 }
 
