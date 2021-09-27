@@ -23,6 +23,8 @@ class Run(BaseModel, frozen=True, orm_mode = True):
     script: str
     state: "RunState"
 
+class RunWithId(Run):
+    id: int
 
 class RunState(Enum):
     RUNNING = 1
@@ -293,5 +295,6 @@ class Logs(BaseModel, frozen=True, orm_mode = True):
 PosteriorSamplePoint.update_forward_refs()
 PosteriorSample.update_forward_refs()
 Run.update_forward_refs()
+RunWithId.update_forward_refs()
 
 

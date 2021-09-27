@@ -3,13 +3,27 @@
 from typing import Optional
 from collections import namedtuple
 from fastapi import FastAPI, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from markupsafe import escape
 from datetime import datetime
-from src.data import Code, RunState, Run, RunOutput, Logs, PosteriorSample, Log
+from src.data import Code, RunState, Run, RunWithId, RunOutput, Logs, PosteriorSample, Log
 from src import db
 from src.tasks import do_run
 
 app = FastAPI()
+
+#TODO: put the allowed host in proper config
+allowed_origins = [
+        "http://localhost:3000",
+]
+
+app.add_middleware(
+        CORSMiddleware,
+        allow_origins = allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+)
 
 @app.get("/launch/{commit_hash}")
 async def launch(
@@ -19,7 +33,8 @@ async def launch(
         timestamp: str,
         job_dir: str,
         output_dir: str,
-        script: str) -> int:
+        script: str,
+        ) -> int:
     run = Run(
             code = Code(
                 commit_hash = commit_hash,
@@ -28,12 +43,14 @@ async def launch(
             timestamp = timestamp,
             job_dir = job_dir,
             output_dir = output_dir,
-            script = script)
+            script = script,
+            state = RunState.RUNNING)
     return await do_run(run)
 
 
 @app.get("/all_runs")
-async def run_list() -> list[Run]:
+async def run_list() -> list[RunWithId]:
+    runs = [db.get_all_runs()]
     return db.get_all_runs()
 
 
