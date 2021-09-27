@@ -11,8 +11,6 @@ const DEFAULT_OUTPUT_DIR = "output";
 const DEFAULT_SCRIPT = "Colony_fission_ABC.oms";
 
 
-// get branches
-// curl -XGET https://gitlab.openmole.org/api/v4/projects/42/repository/branches | jq '.[].name'
 async function fetchBranches() {
     return (fetch(new URL("https://gitlab.openmole.org/api/v4/projects/42/repository/branches"))
       .then(result => result.json())
@@ -20,8 +18,6 @@ async function fetchBranches() {
 }
 
 
-// get commits from branch fake_model
-// curl -XGET https://gitlab.openmole.org/api/v4/projects/42/repository/commits -d 'ref_name=fake_model' | jq '.[] | "", .id, .message, .author_name'
 async function fetchCommits(branch) {
     let req = new URL("https://gitlab.openmole.org/api/v4/projects/42/repository/commits");
     req.searchParams.set("ref_name", branch);
@@ -145,12 +141,12 @@ function NewRunSetupTool(props) {
           onClick={() => {
             setLaunchFeedback(new LaunchInitiated());
             (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
-              .catch(err => setLaunchFeedback(new LaunchFailed(err)))
               .then(runId => {
                 setLaunchFeedback(new LaunchSuccessful(runId));
                 close();
+                props.triggerUpdateRunList();
               })
-              .then(() => props.triggerUpdateRunList())
+              .catch(err => setLaunchFeedback(new LaunchFailed(err)))
             );
           }}
         />
@@ -160,11 +156,11 @@ function NewRunSetupTool(props) {
 
   return (
     <div>
-    {upperPanel}
-    <StartNewRunFeedbackArea
-      launchFeedback={launchFeedback}
-    />
-    </div>
+      {upperPanel}
+      <StartNewRunFeedbackArea
+        launchFeedback={launchFeedback}
+      />
+      </div>
   );
 }
 
