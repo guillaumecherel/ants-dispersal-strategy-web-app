@@ -101,33 +101,8 @@ function CommitItem(props) {
 }
 
 
-function StartNewRun(props) {
-  const [startingNewRun, setStartingNewRun] = useState(false);
-
-  if (!startingNewRun) {
-    return (<StartNewRunButton
-      setStartingNewRun={setStartingNewRun}
-    />);
-  } else {
-    return (
-      <NewRunSetupTool
-        triggerUpdateRunList={props.triggerUpdateRunList}/>
-    );
-  }
-}
-
-
-function StartNewRunButton(props) {
-    return (<button 
-      type="button"
-      onClick={() => props.setStartingNewRun(true)}>
-        Start a new run
-      </button>
-    );
-}
-
-
 function NewRunSetupTool(props) {
+  const [startingNewRun, setStartingNewRun] = useState(false);
   const [curBranch, setCurBranch] = useState(undefined);
   const [curCommit, setCurCommit] = useState(undefined);
   const [jobDir, setJobDir] = useState(DEFAULT_JOB_DIR);
@@ -135,39 +110,72 @@ function NewRunSetupTool(props) {
   const [script, setScript] = useState(DEFAULT_SCRIPT);
   const [launchFeedback, setLaunchFeedback] = useState(new LaunchNotInitiated());
 
+  const close = msg => {
+    setCurBranch(undefined);
+    setCurCommit(undefined);
+    setStartingNewRun(false);
+  };
+
+  let upperPanel;
+  if (!startingNewRun) {
+    upperPanel = (<StartNewRunButton
+      onClick={() => setStartingNewRun(true)}
+    />);
+  } else {
+    upperPanel = (
+      <div>
+        <CodeSelector
+          curBranch={curBranch}
+          curCommit={curCommit}
+          onSelectBranch={setCurBranch}
+          onSelectCommit={setCurCommit}
+        />
+        <RunConfig
+          curCommit={curCommit}
+          jobDir={jobDir}
+          outputDir={outputDir}
+          script={script}
+          onSetJobDir={setJobDir}
+          onSetOutputDir={setOutputDir}
+          onSetScript={setScript}
+        />
+        <ConfirmStartNewRunButton
+          curBranch={curBranch}
+          curCommit={curCommit}
+          onClick={() => {
+            setLaunchFeedback(new LaunchInitiated());
+            (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
+              .catch(err => setLaunchFeedback(new LaunchFailed(err)))
+              .then(runId => {
+                setLaunchFeedback(new LaunchSuccessful(runId));
+                close();
+              })
+              .then(() => props.triggerUpdateRunList())
+            );
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
-      <CodeSelector
-        curBranch={curBranch}
-        curCommit={curCommit}
-        onSelectBranch={setCurBranch}
-        onSelectCommit={setCurCommit}
-      />
-      <RunConfig
-        curCommit={curCommit}
-        jobDir={jobDir}
-        outputDir={outputDir}
-        script={script}
-        onSetJobDir={setJobDir}
-        onSetOutputDir={setOutputDir}
-        onSetScript={setScript}
-      />
-      <ConfirmStartNewRunButton
-        curBranch={curBranch}
-        curCommit={curCommit}
-        onClick={() => {
-          setLaunchFeedback(new LaunchInitiated());
-          (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
-            .catch(err => setLaunchFeedback(new LaunchFailed(err)))
-            .then(runId => setLaunchFeedback(new LaunchSuccessful(runId)))
-            .then(() => props.triggerUpdateRunList())
-          );
-        }}
-      />
-      <StartNewRunFeedbackArea
-        launchFeedback={launchFeedback}
-      />
-    </div>);
+    {upperPanel}
+    <StartNewRunFeedbackArea
+      launchFeedback={launchFeedback}
+    />
+    </div>
+  );
+}
+
+
+function StartNewRunButton(props) {
+    return (<button 
+      type="button"
+      onClick={() => props.onClick()}>
+        Start a new run
+      </button>
+    );
 }
 
 
@@ -291,17 +299,21 @@ function BranchList(props) {
   const onSelectBranch = props.onSelectBranch;
 
   useEffect(() => {
+    let isMounted = true;
     (fetchBranches()
-      .then(bs => bs.map(b => {
-        return (
-          <BranchItem
-            key={b.name}
-            name = {b.name}
-            onClick={() => onSelectBranch(b)}
-          />
-        );
-      }))
-      .then(bs => setBranches(bs)));
+      .then(bs => {
+        if (isMounted) {
+          setBranches(bs.map(b => (
+            <BranchItem
+              key={b.name}
+              name = {b.name}
+              onClick={() => onSelectBranch(b)}
+            />
+          )));
+        }
+      })
+    );
+    return () => { isMounted = false };
   }, [onSelectBranch]);
 
   return (
@@ -319,19 +331,22 @@ function CommitList(props) {
   const onSelectCommit = props.onSelectCommit;
 
   useEffect(() => {
-    if (branch !== undefined){
+    let isMounted = true;
+    if (branch !== undefined) {
       (fetchCommits(branch.name)
-        .then(cs => cs.map(c => 
-          (
+        .then(cs => {
+          if (isMounted) {
+            setCommits(cs.map(c => (
               <CommitItem
                 key={c.hash}
                 commit={c}
-                onClick={() => onSelectCommit(c)}/>
-          )
-        ))
-        .then(cs => setCommits(cs))
-      );
+                onClick={() => onSelectCommit(c)}
+              />
+            )));
+          }
+        }));
     }
+    return () => { isMounted = false };
   }, [branch, onSelectCommit]);
 
   return (
@@ -391,7 +406,7 @@ function App(props) {
 
   return (
     <div className="App">
-      <StartNewRun 
+      <NewRunSetupTool 
         triggerUpdateRunList={triggerUpdateRunList}/>
       <p>Or chose a run from the list below to see the logs and results:</p>
       <RunList
