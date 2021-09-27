@@ -120,11 +120,11 @@ def get_run(run_id: int) -> Optional[data.Run]:
     return result
 
 
-def get_all_runs() -> list[data.Run]:
+def get_all_runs() -> list[data.RunWithId]:
     with Session(engine) as session:
-        stmt = select(Run).order_by(Run.timestamp)
+        stmt = select(Run).order_by(Run.timestamp.desc())
 
-        runs = [data.Run.from_orm(r) for r in session.execute(stmt).scalars()]
+        runs = [data.RunWithId.from_orm(r) for r in session.execute(stmt).scalars()]
 
     return runs
 
