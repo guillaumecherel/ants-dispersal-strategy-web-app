@@ -2,67 +2,24 @@ import {useState, useEffect} from 'react';
 import './App.css';
 import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
   LaunchSuccessful, LaunchFailed} from './Core';
+import {fetchBranches, fetchCommits, fetchAllRuns, launchRun, HttpError} from './Requests';
+import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR, 
+  DEFAULT_SCRIPT} from './Constants';
 
-//TODO: Move this to proper config
-const BACKEND_HOST = "localhost";
-const BACKEND_PORT = "8888";
-const DEFAULT_JOB_DIR = "openmole";
-const DEFAULT_OUTPUT_DIR = "output";
-const DEFAULT_SCRIPT = "Colony_fission_ABC.oms";
+function App(props) {
+  const [flagUpdateRunList, setFlagUpdateRunList] = useState(false)
+  const triggerUpdateRunList = () => setFlagUpdateRunList(!flagUpdateRunList)
 
-
-async function fetchBranches() {
-    return (fetch(new URL("https://gitlab.openmole.org/api/v4/projects/42/repository/branches"))
-      .then(result => result.json())
-      .then(json => json.map(branch => new Branch(branch.name))));
-}
-
-
-async function fetchCommits(branch) {
-    let req = new URL("https://gitlab.openmole.org/api/v4/projects/42/repository/commits");
-    req.searchParams.set("ref_name", branch);
-    return (fetch(req)
-      .then(result => result.json())
-      .then(json => json.map(commit => {
-        return new Commit(commit.id, commit.authored_date, commit.author_name,
-          commit.message)
-      })));
-}
-
-
-async function fetchAllRuns(branch) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/all_runs");
-  return (fetch(req)
-    .then(result => result.json())
-    .then(json => json.map(run => {
-      return new Run(
-        run.id,
-        new Code(
-          run.code.commit_hash,
-          run.code.branch,
-          run.code.description,
-        ),
-        run.date,
-        run.job_dir,
-        run.output_dir,
-        run.script,
-        run.state
-      )
-    }))
-  );
-}
-
-
-async function launchRun(run) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/launch/" + run.code.commit_hash);
-  req.searchParams.set("branch", run.code.branch.name)
-  req.searchParams.set("description", run.code.description)
-  req.searchParams.set("timestamp", run.date)
-  req.searchParams.set("job_dir", run.job_dir)
-  req.searchParams.set("output_dir", run.output_dir)
-  req.searchParams.set("script", run.script)
-  return (fetch(req)
-    .then(result => result.text())
+  return (
+    <div className="App">
+      <NewRunSetupTool 
+        triggerUpdateRunList={triggerUpdateRunList}/>
+      <p>Or chose a run from the list below to see the logs and results:</p>
+      <RunList
+        onSelectRun={r => alert("Selected run " + r.id)}
+        flagUpdate={flagUpdateRunList}
+      />
+    </div>
   );
 }
 
@@ -104,7 +61,7 @@ function NewRunSetupTool(props) {
   const [jobDir, setJobDir] = useState(DEFAULT_JOB_DIR);
   const [outputDir, setOutputDir] = useState(DEFAULT_OUTPUT_DIR);
   const [script, setScript] = useState(DEFAULT_SCRIPT);
-  const [launchFeedback, setLaunchFeedback] = useState(new LaunchNotInitiated());
+  const [notificationArea, setNotification] = useNotificationArea();
 
   const close = msg => {
     setCurBranch(undefined);
@@ -139,14 +96,14 @@ function NewRunSetupTool(props) {
           curBranch={curBranch}
           curCommit={curCommit}
           onClick={() => {
-            setLaunchFeedback(new LaunchInitiated());
+            setNotification(new LaunchInitiated());
             (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
               .then(runId => {
-                setLaunchFeedback(new LaunchSuccessful(runId));
+                setNotification(new LaunchSuccessful(runId));
                 close();
                 props.triggerUpdateRunList();
               })
-              .catch(err => setLaunchFeedback(new LaunchFailed(err)))
+              .catch(err => setNotification(new LaunchFailed(err)))
             );
           }}
         />
@@ -157,9 +114,7 @@ function NewRunSetupTool(props) {
   return (
     <div>
       {upperPanel}
-      <StartNewRunFeedbackArea
-        launchFeedback={launchFeedback}
-      />
+      {notificationArea}
     </div>
   );
 }
@@ -172,27 +127,6 @@ function StartNewRunButton(props) {
         Start a new run
       </button>
     );
-}
-
-
-function StartNewRunFeedbackArea(props) {
-  let feedback;
-  let className = "launch-feedback";
-  if (props.launchFeedback instanceof LaunchNotInitiated) {
-    feedback = "";
-  } else if (props.launchFeedback instanceof LaunchInitiated) {
-    feedback = "Launching... it may take a few seconds";
-  } else if (props.launchFeedback instanceof LaunchSuccessful) {
-    feedback = "Launch successful! Run id: " + props.launchFeedback.runId;
-    className += " success";
-  } else if (props.launchFeedback instanceof LaunchFailed) {
-    feedback = "Launch failed. Error: " + props.launchFeedback.error;
-    className += " danger";
-  }
-
-  return (
-    <p className={className}>{feedback}</p>
-  );
 }
 
 
@@ -293,6 +227,7 @@ function SelectedCommitView(props) {
 function BranchList(props) {
   const [branches, setBranches] = useState([]);
   const onSelectBranch = props.onSelectBranch;
+  const [notificationArea, setNotification] = useNotificationArea();
 
   useEffect(() => {
     let isMounted = true;
@@ -308,16 +243,54 @@ function BranchList(props) {
           )));
         }
       })
+      .catch(setNotification)
     );
     return () => { isMounted = false };
-  }, [onSelectBranch]);
+  }, [onSelectBranch, setNotification]);
 
   return (
     <div>
       <p>Branches:</p>
+      {notificationArea}
       <ul>{branches}</ul>
     </div>
   );
+}
+
+
+function useNotificationArea() {
+  const [notification, setNotification] = useState(undefined);
+
+  let message;
+  let messageClass = "info";
+  if (notification === undefined) {
+    message = "";
+  } else if (typeof notification == "string") {
+    message = notification;
+  } else if (notification instanceof LaunchNotInitiated) {
+    message = "";
+  } else if (notification instanceof LaunchInitiated) {
+    message = "Launching... it may take a few seconds";
+  } else if (notification instanceof LaunchSuccessful) {
+    message = "Launch successful! Run id: " + notification.runId;
+    messageClass += " success";
+  } else if (notification instanceof LaunchFailed) {
+    message = "Launch failed. Error: " + notification.error;
+    messageClass += " warning";
+  } else if (notification instanceof Error){
+    message = setNotification.toString();
+    messageClass += " warning";
+  } else {
+    message = setNotification.toString();
+  }
+
+  const notificationArea = (
+    <p className={"notification-area " + messageClass}>
+      {message}
+    </p>
+  );
+
+  return [notificationArea, setNotification]
 }
 
 
@@ -325,6 +298,7 @@ function CommitList(props) {
   const [commits, setCommits] = useState([]);
   const branch = props.branch;
   const onSelectCommit = props.onSelectCommit;
+  const [notificationArea, setNotification] = useNotificationArea();
 
   useEffect(() => {
     let isMounted = true;
@@ -340,14 +314,17 @@ function CommitList(props) {
               />
             )));
           }
-        }));
+        })
+        .catch(setNotification)
+      );
     }
     return () => { isMounted = false };
-  }, [branch, onSelectCommit]);
+  }, [branch, onSelectCommit, setNotification]);
 
   return (
     <div>
       <p>Commits:</p>
+      {notificationArea}
       <ul>{commits}</ul>
     </div>
   );
@@ -358,10 +335,11 @@ function RunList(props) {
   const [runs, setRuns] = useState([]);
   const onSelectRun = props.onSelectRun;
   const flagUpdate = props.flagUpdate;
+  const [notificationArea, setNotification] = useNotificationArea();
 
   useEffect(() => {
     (fetchAllRuns()
-      .then(rs => rs.map(r =>
+      .then(rs => setRuns(rs.map(r =>
         (
           <RunItem
             key={r.id}
@@ -369,12 +347,17 @@ function RunList(props) {
             onClick={() => onSelectRun(r)}
           />
         )
-      ))
-      .then(rs => setRuns(rs))
+      )))
+      .catch(setNotification)
     );
-  }, [onSelectRun, flagUpdate]);
+  }, [onSelectRun, flagUpdate, setNotification]);
 
-  return (<ul>{runs}</ul>);
+  return (
+    <div>
+      {notificationArea}
+      <ul>{runs}</ul>
+    </div>
+  );
 }
 
 
@@ -396,21 +379,22 @@ function RunItem(props) {
 }
 
 
-function App(props) {
-  const [flagUpdateRunList, setFlagUpdateRunList] = useState(false)
-  const triggerUpdateRunList = () => setFlagUpdateRunList(!flagUpdateRunList)
+function WithNotification(props) {
+  const [notification, setNotification] = useState([]);
 
   return (
-    <div className="App">
-      <NewRunSetupTool 
-        triggerUpdateRunList={triggerUpdateRunList}/>
-      <p>Or chose a run from the list below to see the logs and results:</p>
-      <RunList
-        onSelectRun={r => alert("Selected run " + r.id)}
-        flagUpdate={flagUpdateRunList}
-      />
+    <div>
+      <NotificationArea message={notification} />
+      {props.content(setNotification)}
     </div>
   );
 }
+
+
+function NotificationArea(props) {
+  return <div className="notification-area">{props.message}</div>;
+}
+
+
 
 export default App;
