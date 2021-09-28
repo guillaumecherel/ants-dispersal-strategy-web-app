@@ -42,7 +42,7 @@ export async function fetchAllRuns(branch) {
           run.code.branch,
           run.code.description,
         ),
-        run.date,
+        run.timestamp,
         run.job_dir,
         run.output_dir,
         run.script,
@@ -62,6 +62,49 @@ export async function launchRun(run) {
   req.searchParams.set("output_dir", run.output_dir)
   req.searchParams.set("script", run.script)
   const errorMsg = "Could not launch run.";
+
+  return (fetch(req)
+    .catch(throwNetworkError(req, errorMsg))
+    .then(jsonOrThrowHttpError(req, errorMsg))
+  );
+}
+
+
+export async function fetchNewLogs(runId, lastLogDate) {
+  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/logs/" + runId);
+  req.searchParams.set("from_time", lastLogDate.toISOString());
+  const errorMsg = "Could not fetch logs.";
+
+  return (fetch(req)
+    .catch(throwNetworkError(req, errorMsg))
+    .then(jsonOrThrowHttpError(req, errorMsg))
+    .then(logs => {
+      for (let context in logs) {
+        for (let log of logs[context]) {
+          log.timestamp = new Date(log.timestamp);
+        }
+      }
+      return logs;
+    })
+  );
+}
+
+
+export async function fetchRunOutput(runId) {
+  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/output/" + runId);
+  const errorMsg = "Could not fetch run output.";
+
+  return (fetch(req)
+    .catch(throwNetworkError(req, errorMsg))
+    .then(jsonOrThrowHttpError(req, errorMsg))
+    .then(json => json.text)
+  );
+}
+
+
+export async function fetchRunResults(runId) {
+  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/posterior_sample/" + runId);
+  const errorMsg = "Could not fetch posterior sample.";
 
   return (fetch(req)
     .catch(throwNetworkError(req, errorMsg))

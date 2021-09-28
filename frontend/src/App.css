@@ -35,4 +35,10 @@
   to {
     transform: rotate(360deg);
   }
+} 
+
+.run-output-view pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  text-align: left;
 }

@@ -39,8 +39,38 @@ export const mkRun = (commit, branch, job_dir, output_dir, script) => new Run(
 export function LaunchNotInitiated() {};
 export function LaunchInitiated() {};
 export function LaunchSuccessful(runId) {
-  this.runId = runId
+  this.runId = runId;
 };
 export function LaunchFailed(error) {
-  this.error = error
+  this.error = error;
 };
+
+export const addLogs = (logs1, logs2) => {
+    let result = {};
+
+    for (let context in logs1) {
+      result[context] = logs1[logList];
+    }
+
+    for (let context in logs2) {
+      if (context in result) {
+        result[context] = [...result[context], ...logs2[context]];
+      } else {
+        result[context] = logs2[context];
+      }
+    }
+
+    return result;
+}
+
+export const getLastLogDate = (logs) => {
+  let result = new Date(0);
+
+  for (let context in logs) {
+    for (let log of logs[context]) {
+      result = log.timestamp > result ? log.timestamp : result;
+    }
+  }
+
+  return result
+}

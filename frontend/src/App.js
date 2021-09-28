@@ -1,55 +1,224 @@
 import {useState, useEffect} from 'react';
 import './App.css';
 import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
-  LaunchSuccessful, LaunchFailed} from './Core';
-import {fetchBranches, fetchCommits, fetchAllRuns, launchRun, HttpError} from './Requests';
-import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR, 
-  DEFAULT_SCRIPT} from './Constants';
+  LaunchSuccessful, LaunchFailed, addLogs, getLastLogDate} from './Core';
+import {fetchBranches, fetchCommits, fetchAllRuns, launchRun, fetchNewLogs,
+  fetchRunOutput, fetchRunResults} from './Requests';
+import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR,
+  DEFAULT_SCRIPT, RUN_OUTPUT_UPDATE_INTERVAL, RUN_RESULTS_UPDATE_INTERVAL,
+  RUN_LOGS_UPDATE_INTERVAL} from './Constants';
+import embed from 'vega-embed';
+
 
 function App(props) {
-  const [flagUpdateRunList, setFlagUpdateRunList] = useState(false)
-  const triggerUpdateRunList = () => setFlagUpdateRunList(!flagUpdateRunList)
+  const [flagUpdateRunList, setFlagUpdateRunList] = useState(false);
+  const triggerUpdateRunList = () => setFlagUpdateRunList(!flagUpdateRunList);
+  const [selectedRun, setSelectedRun] = useState(undefined);
+
+  let mainView;
+  if (selectedRun) {
+    mainView = (
+      <RunView 
+        run={selectedRun}
+        close={() => setSelectedRun(undefined)}
+      />
+    );
+  } else {
+    mainView = (
+      <HomeView 
+        triggerUpdateRunList={triggerUpdateRunList}
+        onSelectRun={setSelectedRun}
+        flagUpdateRunList={flagUpdateRunList}
+      />
+    );
+  }
 
   return (
     <div className="App">
-      <NewRunSetupTool 
-        triggerUpdateRunList={triggerUpdateRunList}/>
-      <p>Or chose a run from the list below to see the logs and results:</p>
-      <RunList
-        onSelectRun={r => alert("Selected run " + r.id)}
-        flagUpdate={flagUpdateRunList}
+      {mainView}
+    </div>
+  );
+}
+
+
+function RunView(props) {
+  return (
+    <div className="run-view">
+      <button onClick={props.close}>Back</button>
+      <h1>Run {props.run.id}</h1>
+      <p>Launched {props.run.date}</p>
+      <p>Commit {props.run.code.commit_hash} (branch: {props.run.code.branch})</p>
+      <p>{props.run.code.description}</p>
+      <p>{props.run.state}</p>
+      <RunResultsView 
+        run={props.run}
+      />
+      <RunOutputView 
+        run={props.run}
+      />
+      <RunLogsView
+        run={props.run}
       />
     </div>
   );
 }
 
 
-function BranchItem(props) {
+function RunResultsView(props) {
+  const [results, setResults] = useState(undefined);
+  const runId = props.run.id;
+  const [notificationArea, setNotification] = useNotificationArea();
+
+  useEffect(() => {
+    let gotResults = false;
+    const fetch_ = () => (
+      fetchRunResults(runId)
+      .then(results => {
+        if (results) {
+          setResults(results);
+          gotResults = true;
+        }
+      })
+      .catch(setNotification)
+    );
+
+    fetch_();
+    let timer = setInterval(() => {
+        fetch_();
+        if (gotResults) {
+          clearInterval(timer);
+        }
+    }, RUN_RESULTS_UPDATE_INTERVAL);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const visu = {
+    $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+    data: {
+      values: results?.data
+    },
+    mark: 'point',
+    encoding: {
+      y: {
+        field: 'nest_quality_assessment_error',
+        type: 'quantitative'
+      },
+      x: {
+        field: 'percentage_foragers',
+        type: 'quantitative',
+      }
+    }
+  };
+
+  useEffect(() => {
+    embed('#vis', visu);
+  })
+
   return (
-    <li>
-      <button 
-        type="button"
-        onClick={props.onClick}>
-        {props.name}
-      </button>
-    </li>
+    <div className="run-results-view">
+      <h3>Run results</h3>
+      {notificationArea}
+      <div id="vis"></div>
+    </div>
   );
 }
 
 
-function CommitItem(props) {
-  const c = props.commit;
+function RunOutputView(props) {
+  const [output, setOutput] = useState(undefined);
+  const runId = props.run.id;
+  const [notificationArea, setNotification] = useNotificationArea();
+
+  useEffect(() => {
+    let gotOutput = false;
+    const fetch_ = () => (
+      fetchRunOutput(runId)
+      .then(output => {
+        if (output) {
+          setOutput(output);
+          gotOutput = true;
+        }
+      })
+      .catch(setNotification)
+    );
+
+    fetch_();
+    let timer = setInterval(() => {
+      fetch_();
+      if (gotOutput) {
+        clearInterval(timer);
+      }
+    }, RUN_OUTPUT_UPDATE_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <li>
-      <button 
-        type="button"
-        onClick={props.onClick}>
-          <p className="hash">{c.hash}</p>
-          <p className="date">{c.date}</p>
-          <p className="author">{c.author}</p>
-          <p className="message">{c.message}</p>
-      </button>
-    </li>
+    <div className="run-output-view">
+      <h3>Run output</h3>
+      {notificationArea}
+      <pre>{output}</pre>
+    </div>
+  );
+}
+
+
+function RunLogsView(props) {
+  const [lastLogDate, setLastLogDate] = useState(new Date(0));
+  const [logs, setLogs] = useState(undefined);
+  const appendLogs = newLogs => setLogs(addLogs(logs, newLogs))
+  const [notificationArea, setNotification] = useNotificationArea();
+  const runId = props.run.id
+
+  useEffect(() => {
+    const fetch_ = () => (
+      fetchNewLogs(runId, lastLogDate)
+      .then(newLogs => {
+        appendLogs(newLogs);
+        setLastLogDate(getLastLogDate(newLogs));
+      })
+      .catch(setNotification)
+    );
+
+    fetch_();
+    let timer = setInterval(fetch_, RUN_LOGS_UPDATE_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+
+  let logElements = [];
+  for (let context in logs) {
+    for (let log of logs[context]) {
+      logElements.push(
+        <div className="log">
+          <p className="context">{context}</p>
+          <p className="timestamp">{log.timestamp.toString()}</p>
+          <p className="stdout">{log.stdout}</p>
+          <p className="stderr">{log.stderr}</p>
+        </div>
+      );
+    }
+  }
+
+  return (
+    <div>
+      <h3>Logs</h3>
+      {logElements}
+    </div>
+  );
+}
+
+
+function HomeView(props) {
+  return (
+    <div className="home-view">
+      <NewRunSetupTool 
+        triggerUpdateRunList={props.triggerUpdateRunList}
+      />
+      <p>Or chose a run from the list below to see the logs and results:</p>
+      <RunList
+        onSelectRun={props.onSelectRun}
+        flagUpdate={props.flagUpdateRunList}
+      />
+    </div>
   );
 }
 
@@ -180,6 +349,7 @@ function ConfirmStartNewRunButton(props) {
   }
 }
 
+
 function CodeSelector(props) {
   if (props.curBranch && props.curCommit) {
     return (
@@ -204,6 +374,19 @@ function CodeSelector(props) {
       </div>
     );
   }
+}
+
+
+function BranchItem(props) {
+  return (
+    <li>
+      <button 
+        type="button"
+        onClick={props.onClick}>
+        {props.name}
+      </button>
+    </li>
+  );
 }
 
 
@@ -245,6 +428,7 @@ function BranchList(props) {
       })
       .catch(setNotification)
     );
+
     return () => { isMounted = false };
   }, [onSelectBranch, setNotification]);
 
@@ -331,6 +515,23 @@ function CommitList(props) {
 }
 
 
+function CommitItem(props) {
+  const c = props.commit;
+  return (
+    <li>
+      <button 
+        type="button"
+        onClick={props.onClick}>
+          <p className="hash">{c.hash}</p>
+          <p className="date">{c.date}</p>
+          <p className="author">{c.author}</p>
+          <p className="message">{c.message}</p>
+      </button>
+    </li>
+  );
+}
+
+
 function RunList(props) {
   const [runs, setRuns] = useState([]);
   const onSelectRun = props.onSelectRun;
@@ -394,7 +595,6 @@ function WithNotification(props) {
 function NotificationArea(props) {
   return <div className="notification-area">{props.message}</div>;
 }
-
 
 
 export default App;
