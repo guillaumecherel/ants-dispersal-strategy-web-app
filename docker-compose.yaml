@@ -1,11 +1,24 @@
 version: '3.3'
 services:
+    nginx:
+        build:
+            context: .
+            dockerfile: nginx/Dockerfile
+            args:
+                FRONTEND_BUILD_ROOT: ${FRONTEND_BUILD_ROOT}
+                NGINX_CONF: ${NGINX_CONF}
+        ports:
+            - 80:80
+        environment:
+            BACKEND_HOST: ${BACKEND_HOST}
+            BACKEND_PORT: ${BACKEND_PORT}
+
     openmole:
         image: openmole/openmole:latest
         command: openmole-docker --rest --port ${OPENMOLE_PORT} --password ${OPENMOLE_PASSWORD} 
         # docker run --rm --privileged -p 8080:8080 openmole/openmole:latest     openmole --port 8080 --reset --reset-password --rest --password ""
-        ports:
-            - ${OPENMOLE_PORT}:${OPENMOLE_PORT}
+        #ports:
+        #    - ${OPENMOLE_PORT}:${OPENMOLE_PORT}
         privileged: true
         restart: on-failure:100000
     db:
@@ -17,20 +30,22 @@ services:
             # Needed for database to initialize correctly with an alternative
             # auth method. See https://hub.docker.com/_/postgres/
             POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-        ports:
-            - ${DB_PORT}:${DB_PORT}
+        #ports:
+        #    - ${DB_PORT}:${DB_PORT}
     backend:
         build:
             context: backend/
             args:
-                LOCAL_SRC: ${LOCAL_SRC}
                 JOB_REPO_ORIGIN: ${JOB_REPO_ORIGIN}
                 JOB_REPO_LOCAL: ${JOB_REPO_LOCAL}
                 BACKEND_PORT: ${BACKEND_PORT}
-        ports:
-            - ${BACKEND_PORT}:${BACKEND_PORT}/tcp
+        #ports:
+        #    - ${BACKEND_PORT}:${BACKEND_PORT}/tcp
         env_file:
             .env
+        environment:
+            PORT: ${BACKEND_PORT}
+            APP_MODULE: ${FASTAPI_APP_MODULE}
         depends_on:
             - db
             - openmole

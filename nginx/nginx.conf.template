@@ -1,0 +1,19 @@
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+    }
+
+    location /b/ {
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT}/;
+    }
+
+    location /openapi.json {
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+    }
+
+}
+

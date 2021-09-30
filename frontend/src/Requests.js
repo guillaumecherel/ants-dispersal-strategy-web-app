@@ -1,6 +1,6 @@
 import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
   LaunchSuccessful, LaunchFailed} from './Core';
-import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR, 
+import {BACKEND_BASE_ROUTE, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR, 
   DEFAULT_SCRIPT, JOB_REPO_API} from './Constants';
 
 
@@ -29,7 +29,7 @@ export async function fetchCommits(branch) {
 
 
 export async function fetchAllRuns(branch) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/all_runs");
+  let req = new URL(BACKEND_BASE_ROUTE + "all_runs");
   const errorMsg = "Could not fetch run list.";
   return (fetch(req)
     .catch(throwNetworkError(req,errorMsg))
@@ -54,7 +54,7 @@ export async function fetchAllRuns(branch) {
 
 
 export async function launchRun(run) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/launch/" + run.code.commit_hash);
+  let req = new URL(BACKEND_BASE_ROUTE + "launch/" + run.code.commit_hash);
   req.searchParams.set("branch", run.code.branch.name)
   req.searchParams.set("description", run.code.description)
   req.searchParams.set("timestamp", run.date)
@@ -71,7 +71,7 @@ export async function launchRun(run) {
 
 
 export async function fetchNewLogs(runId, lastLogDate) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/logs/" + runId);
+  let req = new URL(BACKEND_BASE_ROUTE + "logs/" + runId);
   req.searchParams.set("from_time", lastLogDate.toISOString());
   const errorMsg = "Could not fetch logs.";
 
@@ -91,7 +91,7 @@ export async function fetchNewLogs(runId, lastLogDate) {
 
 
 export async function fetchRunOutput(runId) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/output/" + runId);
+  let req = new URL(BACKEND_BASE_ROUTE + "output/" + runId);
   const errorMsg = "Could not fetch run output.";
 
   return (fetch(req)
@@ -103,7 +103,7 @@ export async function fetchRunOutput(runId) {
 
 
 export async function fetchRunResults(runId) {
-  let req = new URL("http://" + BACKEND_HOST + ":" + BACKEND_PORT + "/posterior_sample/" + runId);
+  let req = new URL(BACKEND_BASE_ROUTE + "posterior_sample/" + runId);
   const errorMsg = "Could not fetch posterior sample.";
 
   return (fetch(req)
