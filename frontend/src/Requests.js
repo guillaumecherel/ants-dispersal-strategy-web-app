@@ -1,11 +1,11 @@
 import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
   LaunchSuccessful, LaunchFailed} from './Core';
 import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR, 
-  DEFAULT_SCRIPT} from './Constants';
+  DEFAULT_SCRIPT, JOB_REPO_API} from './Constants';
 
 
 export async function fetchBranches() {
-  const req = new URL("https://gitlab.openmole.org/api/v4/projects/42/repository/branches")
+  const req = new URL(JOB_REPO_API + "/branches")
   const errorMsg =  "Could not fetch branches.";
   return (fetch(req)
     .catch(throwNetworkError(req, errorMsg))
@@ -15,15 +15,15 @@ export async function fetchBranches() {
 
 
 export async function fetchCommits(branch) {
-    let req = new URL("https://gitlab.openmole.org/api/v4/projects/42/repository/commits");
-    req.searchParams.set("ref_name", branch);
+    let req = new URL(JOB_REPO_API + "/commits");
+    req.searchParams.set("sha", branch);
     const errorMsg = "Could not fetch commits.";
     return (fetch(req)
       .catch(throwNetworkError(req, errorMsg))
       .then(jsonOrThrowHttpError(req, errorMsg))
       .then(json => json.map(commit => {
-        return new Commit(commit.id, commit.authored_date, commit.author_name,
-          commit.message)
+        return new Commit(commit.sha, commit.commit.author.date, commit.commit.author.name,
+          commit.commit.message)
       })));
 }
 

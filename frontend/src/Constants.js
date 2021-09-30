@@ -7,5 +7,6 @@ export const DEFAULT_SCRIPT = "Colony_fission_ABC.oms";
 export const RUN_LOGS_UPDATE_INTERVAL = 1000; // milliseconds
 export const RUN_OUTPUT_UPDATE_INTERVAL = 1000; // milliseconds
 export const RUN_RESULTS_UPDATE_INTERVAL = 1000; // milliseconds
+export const JOB_REPO_API = "https://api.github.com/repos/guillaumecherel/ants-dispersal-strategy"
 
 
