@@ -97,17 +97,57 @@ function RunResultsView(props) {
     data: {
       values: results?.data
     },
-    mark: 'point',
-    encoding: {
-      y: {
-        field: 'nest_quality_assessment_error',
-        type: 'quantitative'
+    transform: [
+      {
+        fold: [
+          "nest_quality_assessment_error",
+          "percentage_foragers",
+          "number_nests",
+          "exploring_phase"
+        ],
+        as: ["parameter", "value"]
       },
-      x: {
-        field: 'percentage_foragers',
-        type: 'quantitative',
+      {
+        density: "value",
+        groupby: ["colony_id", "parameter"],
       }
-    }
+    ],
+    facet: {
+      row: {
+        field: "colony_id",
+        align: "none",
+      },
+      column: {
+        field: "parameter",
+        sort: [
+          "nest_quality_assessment_error",
+          "percentage_foragers",
+          "number_nests",
+          "exploring_phase"
+        ],
+        header: {
+          titleOrient: "bottom",
+          labelOrient: "bottom",
+        }
+      }
+    },
+    spec: {
+      width:100,
+      height: 60,
+      mark: 'line',
+      encoding: {
+        y: {
+          field: 'density',
+          type: 'quantitative'
+        },
+        x: {
+          field: 'value',
+          type: 'quantitative',
+          title: null,
+        }
+      }
+    },
+    resolve: {scale: {x: "independent", y: "independent"}},
   };
 
   useEffect(() => {
