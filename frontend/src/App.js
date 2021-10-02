@@ -214,19 +214,20 @@ function RunOutputView(props) {
   const [output, setOutput] = useState(undefined);
   const runId = props.run.id;
   const runState = props.run.state;
-  const [notificationArea, setNotification] = useNotificationArea();
+  const [notificationArea, setNotification] = useNotificationArea("Loading…");
 
   useEffect(() => {
     let isRunning = true;
     const fetch_ = () => {
       (fetchRunOutput(runId)
         .then(output => {
+          setNotification(undefined);
           if (output) {
             setOutput(output);
           }
           isRunning = runState === "Running";
         })
-        .catch(setNotification)
+        .catch(err => setNotification("Waiting for some output…"))
       );
     }
 
