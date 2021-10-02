@@ -257,19 +257,23 @@ function RunOutputView(props) {
 
 
 function RunLogsView(props) {
-  const [lastLogDate, setLastLogDate] = useState(new Date(0));
   const [logs, setLogs] = useState(undefined);
   const [notificationArea, setNotification] = useNotificationArea();
   const runId = props.run.id;
   const runState = props.run.state;
 
   useEffect(() => {
-    const appendLogs = newLogs => setLogs(addLogs(logs, newLogs))
+    let lastLogDate = new Date(0);
     const fetch_ = () => (
       fetchNewLogs(runId, lastLogDate)
       .then(newLogs => {
-        appendLogs(newLogs);
-        setLastLogDate(getLastLogDate(newLogs));
+        console.log("Fetched Logs from " + lastLogDate);
+        console.log("New logs:" + JSON.stringify(newLogs));
+        if (newLogs) {
+          setLogs(l => addLogs(l, newLogs));
+          lastLogDate = getLastLogDate(newLogs);
+          console.log("Last recieved log dated " + lastLogDate);
+        }
       })
       .catch(setNotification)
     );
@@ -283,7 +287,7 @@ function RunLogsView(props) {
       }
     }, RUN_LOGS_UPDATE_INTERVAL);
     return () => clearInterval(timer);
-  }, [logs, lastLogDate, runId, runState, setNotification]);
+  }, [runId, runState, setNotification]);
 
   let logElements = [];
   for (let context in logs) {
