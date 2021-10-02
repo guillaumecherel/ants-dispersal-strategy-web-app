@@ -376,8 +376,8 @@ function NewRunSetupTool(props) {
               onClick={() => {
                 setNotification(new LaunchInitiated());
                 (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
-                  .then(() => {
-                    setNotification(new LaunchSuccessful());
+                  .then(run => {
+                    setNotification(new LaunchSuccessful(run));
                     close();
                   })
                   .catch(err => setNotification(new LaunchFailed(err)))
@@ -607,7 +607,7 @@ function useNotificationArea() {
   } else if (notification instanceof LaunchInitiated) {
     message = "Launching... it may take a few seconds";
   } else if (notification instanceof LaunchSuccessful) {
-    message = "Launch successful! The run list will be updated with the new run in a few seconds.";
+    message = "Successfully launched run " + notification.run.id;
     messageClass = "is-success";
   } else if (notification instanceof LaunchFailed) {
     message = "Launch failed. Error: " + notification.error;

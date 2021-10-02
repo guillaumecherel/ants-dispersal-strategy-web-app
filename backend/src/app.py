@@ -8,7 +8,7 @@ from markupsafe import escape
 from datetime import datetime
 from src.data import Code, RunState, Run, RunWithId, RunOutput, Logs, PosteriorSample, Log
 from src import db
-from src.tasks import do_run
+from src.tasks import launch_run
 
 app = FastAPI()
 
@@ -34,8 +34,7 @@ async def launch(
         job_dir: str,
         output_dir: str,
         script: str,
-        bg_tasks: BackgroundTasks,
-        ) -> None:
+        ) -> RunWithId:
     run = Run(
             code = Code(
                 commit_hash = commit_hash,
@@ -46,8 +45,9 @@ async def launch(
             output_dir = output_dir,
             script = script,
             state = RunState.RUNNING)
-    bg_tasks.add_task(do_run, run)
-    return None
+
+    run_with_id = launch_run(run)
+    return run_with_id
 
 
 @app.get("/all_runs")

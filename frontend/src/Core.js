@@ -38,7 +38,9 @@ export const mkRun = (commit, branch, job_dir, output_dir, script) => new Run(
 
 export function LaunchNotInitiated() {};
 export function LaunchInitiated() {};
-export function LaunchSuccessful() {};
+export function LaunchSuccessful(run) {
+  this.run = run;
+};
 export function LaunchFailed(error) {
   this.error = error;
 };

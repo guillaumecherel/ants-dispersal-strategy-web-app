@@ -11,7 +11,8 @@ services:
         environment:
             BACKEND_HOST: ${BACKEND_HOST}
             BACKEND_PORT: ${BACKEND_PORT}
-
+        depends_on:
+            - backend
     openmole:
         image: openmole/openmole:latest
         command: openmole-docker --rest --port ${OPENMOLE_PORT} --password ${OPENMOLE_PASSWORD} 

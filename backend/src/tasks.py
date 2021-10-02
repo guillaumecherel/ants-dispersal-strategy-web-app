@@ -5,12 +5,19 @@ from src import openmole
 from src import db
 from src.util import do_nothing, logger
 
-async def do_run(run: Run) -> RunWithId:
+def launch_run(run: Run) -> RunWithId:
+    run = db.create_run(run)
+
+    create_task(do_run(run))
+
+    return run
+
+
+async def do_run(run: RunWithId) -> None:
     logs, om_run_id = await openmole.send_job(REPOSITORY_PATH, run)
 
     logger.info(logs.pretty())
 
-    run = db.create_run(run)
     db.put_logs(run.id, logs)
     db.put_run_output(run.id, RunOutput(text = ""))
 
@@ -38,6 +45,4 @@ async def do_run(run: Run) -> RunWithId:
             raise RuntimeError(f"Did not get the run results from openmole. Logs: {logs.pretty()}")
         else:
             db.put_posterior_sample(run.id, results)
-
-    return run
 
