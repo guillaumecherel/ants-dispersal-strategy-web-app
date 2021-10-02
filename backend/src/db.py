@@ -76,7 +76,7 @@ class PosteriorSample(Base):
     run: Run = relationship("Run", back_populates = "posterior_sample")
 
 
-def create_run(run: data.Run) -> int:
+def create_run(run: data.Run) -> data.RunWithId:
     logger.info(f"Putting run into db: {run}.")
 
     with Session(engine) as session:
@@ -102,10 +102,12 @@ def create_run(run: data.Run) -> int:
 
         run_id = run_orm.id
 
+        run_with_id = data.RunWithId.from_orm(run_orm)
+
     if run_id is None:
         raise RuntimeError("Did not get any id for the run from the database.")
     else:
-        return run_id
+        return run_with_id
 
 
 def get_run(run_id: int) -> Optional[data.Run]:
@@ -182,9 +184,13 @@ def put_run_output(run_id: int, text: data.RunOutput) -> None:
         if not run_orm:
             raise RuntimeError(f"Run {run_id} not found in the database while trying to put related run outputs.")
 
-        run_output_orm = RunOutput(
-                text = text.text,
-                run = run_orm)
+        run_output_orm = session.get(RunOutput, run_id)
+        if not run_output_orm:
+            run_output_orm = RunOutput(
+                    text = text.text,
+                    run = run_orm)
+        else:
+            run_output_orm.text = text.text
 
         session.add(run_output_orm)
         session.commit()
@@ -272,7 +278,7 @@ def delete_run(run_id: int) -> None:
 # TODO: wait if postgresql not available yet
 engine = create_engine(
         f"postgresql+psycopg2://{DB_USER}:{urllib.parse.quote_plus(DB_PASSWORD)}@{DB_HOST}:{DB_PORT}/postgres",
-        echo = True,
+        echo = False,
         future = True)
 
 Base.metadata.create_all(engine)

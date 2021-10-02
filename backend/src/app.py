@@ -2,7 +2,7 @@
 
 from typing import Optional
 from collections import namedtuple
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Response, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from markupsafe import escape
 from datetime import datetime
@@ -34,7 +34,8 @@ async def launch(
         job_dir: str,
         output_dir: str,
         script: str,
-        ) -> int:
+        bg_tasks: BackgroundTasks,
+        ) -> None:
     run = Run(
             code = Code(
                 commit_hash = commit_hash,
@@ -45,7 +46,8 @@ async def launch(
             output_dir = output_dir,
             script = script,
             state = RunState.RUNNING)
-    return await do_run(run)
+    bg_tasks.add_task(do_run, run)
+    return None
 
 
 @app.get("/all_runs")

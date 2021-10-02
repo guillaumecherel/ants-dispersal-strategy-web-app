@@ -1,5 +1,5 @@
 import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
-  LaunchSuccessful, LaunchFailed} from './Core';
+  LaunchSuccessful, LaunchFailed, runStateLabel} from './Core';
 import {BACKEND_BASE_ROUTE, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR, 
   DEFAULT_SCRIPT, JOB_REPO_API} from './Constants';
 
@@ -22,7 +22,7 @@ export async function fetchCommits(branch) {
       .catch(throwNetworkError(req, errorMsg))
       .then(jsonOrThrowHttpError(req, errorMsg))
       .then(json => json.map(commit => {
-        return new Commit(commit.sha, commit.commit.author.date, commit.commit.author.name,
+        return new Commit(commit.sha, new Date(commit.commit.author.date), commit.commit.author.name,
           commit.commit.message)
       })));
 }
@@ -42,11 +42,11 @@ export async function fetchAllRuns(branch) {
           run.code.branch,
           run.code.description,
         ),
-        run.timestamp,
+        new Date(run.timestamp),
         run.job_dir,
         run.output_dir,
         run.script,
-        run.state
+        runStateLabel(run.state)
       )
     }))
   );
@@ -57,7 +57,7 @@ export async function launchRun(run) {
   let req = new URL(BACKEND_BASE_ROUTE + "launch/" + run.code.commit_hash);
   req.searchParams.set("branch", run.code.branch.name)
   req.searchParams.set("description", run.code.description)
-  req.searchParams.set("timestamp", run.date)
+  req.searchParams.set("timestamp", run.date.toISOString())
   req.searchParams.set("job_dir", run.job_dir)
   req.searchParams.set("output_dir", run.output_dir)
   req.searchParams.set("script", run.script)
@@ -90,6 +90,30 @@ export async function fetchNewLogs(runId, lastLogDate) {
 }
 
 
+export async function fetchRun(runId) {
+  let req = new URL(BACKEND_BASE_ROUTE + "run/" + runId);
+  const errorMsg = "Could not fetch run.";
+
+  return (fetch(req)
+    .catch(throwNetworkError(req, errorMsg))
+    .then(jsonOrThrowHttpError(req, errorMsg))
+    .then(json => new Run(
+      runId,
+      new Code(
+        json.code.commit_hash,
+        json.code.branch,
+        json.code.description
+      ),
+      new Date(json.timestamp),
+      json.job_dir,
+      json.output_dir,
+      json.script,
+      runStateLabel(json.state)
+    ))
+  );
+}
+
+
 export async function fetchRunOutput(runId) {
   let req = new URL(BACKEND_BASE_ROUTE + "output/" + runId);
   const errorMsg = "Could not fetch run output.";
@@ -109,6 +133,7 @@ export async function fetchRunResults(runId) {
   return (fetch(req)
     .catch(throwNetworkError(req, errorMsg))
     .then(jsonOrThrowHttpError(req, errorMsg))
+    .then(json => json.data)
   );
 }
 

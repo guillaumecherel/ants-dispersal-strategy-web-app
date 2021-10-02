@@ -3,10 +3,11 @@ import './App.css';
 import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
   LaunchSuccessful, LaunchFailed, addLogs, getLastLogDate} from './Core';
 import {fetchBranches, fetchCommits, fetchAllRuns, launchRun, fetchNewLogs,
-  fetchRunOutput, fetchRunResults} from './Requests';
+  fetchRun, fetchRunOutput, fetchRunResults} from './Requests';
 import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR,
-  DEFAULT_SCRIPT, RUN_OUTPUT_UPDATE_INTERVAL, RUN_RESULTS_UPDATE_INTERVAL,
-  RUN_LOGS_UPDATE_INTERVAL} from './Constants';
+  DEFAULT_SCRIPT, RUN_STATE_UPDATE_INTERVAL, RUN_OUTPUT_UPDATE_INTERVAL, 
+  RUN_RESULTS_UPDATE_INTERVAL, RUN_LOGS_UPDATE_INTERVAL} from './Constants';
+import {formatDate, shortDate} from './Util';
 import embed from 'vega-embed';
 
 
@@ -34,30 +35,62 @@ function App(props) {
   }
 
   return (
-    <div className="App">
-      {mainView}
-    </div>
+    <section className="section">
+      <div className="container is-max-desktop">
+        <h1 className="title has-text-centered">Ant dispersal strategy simulation experiments</h1>
+        <div className="columns is-centered">
+          <div className="column">
+            {mainView}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
 
 function RunView(props) {
+  const [run, setRun] = useState(props.run);
+  const runId = props.run.id;
+
+  useEffect(() => {
+    let isRunning = true;
+    const fetch_ = () => {
+      (fetchRun(runId)
+        .then(run => {
+          setRun(run);
+          isRunning = run.state === "Running";
+        })
+      );
+    }
+
+    fetch_();
+    let timer = setInterval(() => {
+        if (!isRunning) {
+          clearInterval(timer);
+        } else {
+          fetch_();
+        }
+    }, RUN_STATE_UPDATE_INTERVAL);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="run-view">
-      <button onClick={props.close}>Back</button>
-      <h1>Run {props.run.id}</h1>
-      <p>Launched {props.run.date}</p>
-      <p>Commit {props.run.code.commit_hash} (branch: {props.run.code.branch})</p>
-      <p>{props.run.code.description}</p>
-      <p>{props.run.state}</p>
-      <RunResultsView 
-        run={props.run}
+    <div>
+      <button className="block button" onClick={props.close}>Back</button>
+
+      <div className="block">
+        <RunCard run={run}/>
+      </div>
+
+      <RunResultsView
+        run={run}
       />
-      <RunOutputView 
-        run={props.run}
+      <RunOutputView
+        run={run}
       />
       <RunLogsView
-        run={props.run}
+        run={run}
       />
     </div>
   );
@@ -67,25 +100,35 @@ function RunView(props) {
 function RunResultsView(props) {
   const [results, setResults] = useState(undefined);
   const runId = props.run.id;
+  const runState = props.run.state;
   const [notificationArea, setNotification] = useNotificationArea();
 
   useEffect(() => {
-    let gotResults = false;
-    const fetch_ = () => (
-      fetchRunResults(runId)
-      .then(results => {
-        if (results) {
-          setResults(results);
-          gotResults = true;
-        }
-      })
-      .catch(setNotification)
-    );
+    let isRunning = true;
+    const fetch_ = () => {
+      (fetchRunResults(runId)
+        .then(results => {
+          isRunning = runState === "Running";
+          if (results.length !== 0) {
+            setResults(results);
+            setNotification(undefined);
+          } else {
+            if (isRunning) {
+              setNotification("Waiting for the results.");
+            } else {
+              setNotification("No result available")
+            }
+          }
+        })
+        .catch(setNotification)
+      );
+    };
 
     fetch_();
     let timer = setInterval(() => {
-        fetch_();
-        if (gotResults) {
+        if (isRunning || !results) {
+          fetch_();
+        } else {
           clearInterval(timer);
         }
     }, RUN_RESULTS_UPDATE_INTERVAL);
@@ -95,7 +138,7 @@ function RunResultsView(props) {
   const visu = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
     data: {
-      values: results?.data
+      values: results
     },
     transform: [
       {
@@ -138,25 +181,31 @@ function RunResultsView(props) {
       encoding: {
         y: {
           field: 'density',
-          type: 'quantitative'
+          type: 'quantitative',
         },
         x: {
           field: 'value',
           type: 'quantitative',
-          title: null,
         }
       }
     },
     resolve: {scale: {x: "independent", y: "independent"}},
+    config: {
+      facet: {
+        spacing: 5,
+      }
+    },
   };
 
   useEffect(() => {
-    embed('#vis', visu);
+    if (results) {
+      embed('#vis', visu);
+    }
   })
 
   return (
-    <div className="run-results-view">
-      <h3>Run results</h3>
+    <div className="">
+      <h3 className="subtitle">Run results</h3>
       {notificationArea}
       <div id="vis"></div>
     </div>
@@ -167,36 +216,41 @@ function RunResultsView(props) {
 function RunOutputView(props) {
   const [output, setOutput] = useState(undefined);
   const runId = props.run.id;
+  const runState = props.run.state;
   const [notificationArea, setNotification] = useNotificationArea();
 
   useEffect(() => {
-    let gotOutput = false;
-    const fetch_ = () => (
-      fetchRunOutput(runId)
-      .then(output => {
-        if (output) {
-          setOutput(output);
-          gotOutput = true;
-        }
-      })
-      .catch(setNotification)
-    );
+    let isRunning = true;
+    const fetch_ = () => {
+      (fetchRunOutput(runId)
+        .then(output => {
+          if (output) {
+            setOutput(output);
+          }
+          isRunning = runState === "Running";
+        })
+        .catch(setNotification)
+      );
+    }
 
     fetch_();
     let timer = setInterval(() => {
-      fetch_();
-      if (gotOutput) {
+      if (!isRunning) {
         clearInterval(timer);
+      } else {
+        fetch_();
       }
     }, RUN_OUTPUT_UPDATE_INTERVAL);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className="run-output-view">
-      <h3>Run output</h3>
+    <div className="columns">
+    <div className="column is-centered is-full">
+      <h2 className="subtitle">Run output</h2>
       {notificationArea}
-      <pre>{output}</pre>
+      <div className="break-words is-family-monospace">{output}</div>
+    </div>
     </div>
   );
 }
@@ -207,7 +261,8 @@ function RunLogsView(props) {
   const [logs, setLogs] = useState(undefined);
   const appendLogs = newLogs => setLogs(addLogs(logs, newLogs))
   const [notificationArea, setNotification] = useNotificationArea();
-  const runId = props.run.id
+  const runId = props.run.id;
+  const runState = props.run.state;
 
   useEffect(() => {
     const fetch_ = () => (
@@ -220,7 +275,13 @@ function RunLogsView(props) {
     );
 
     fetch_();
-    let timer = setInterval(fetch_, RUN_LOGS_UPDATE_INTERVAL);
+    let timer = setInterval(() => {
+      if (runState !== "Running") {
+        clearInterval(timer);
+      } else {
+        fetch_()
+      }
+    }, RUN_LOGS_UPDATE_INTERVAL);
     return () => clearInterval(timer);
   }, []);
 
@@ -228,11 +289,15 @@ function RunLogsView(props) {
   for (let context in logs) {
     for (let log of logs[context]) {
       logElements.push(
-        <div className="log">
-          <p className="context">{context}</p>
-          <p className="timestamp">{log.timestamp.toString()}</p>
-          <p className="stdout">{log.stdout}</p>
-          <p className="stderr">{log.stderr}</p>
+        <div className="columns has-background-light mb-4">
+          <div className="column is-2">
+            <p className="tag">{context}</p>
+            <p className="">{shortDate(log.timestamp)}</p>
+          </div>
+          <div className="column">
+            <p className="block is-family-monospace break-words p-3 m-0 mb-3 has-background-white">Stdout: {log.stdout}</p>
+            <p className="block is-family-monospace break-words p-3 m-0 has-background-white">Stderr: {log.stderr}</p>
+          </div>
         </div>
       );
     }
@@ -240,7 +305,7 @@ function RunLogsView(props) {
 
   return (
     <div>
-      <h3>Logs</h3>
+      <h2 className="subtitle">Logs</h2>
       {logElements}
     </div>
   );
@@ -249,12 +314,12 @@ function RunLogsView(props) {
 
 function HomeView(props) {
   return (
-    <div className="home-view">
+    <div>
       <NewRunSetupTool 
         triggerUpdateRunList={props.triggerUpdateRunList}
       />
-      <p>Or chose a run from the list below to see the logs and results:</p>
-      <RunList
+      <p className="block mt-5">Or choose a run from the list below to see the logs and results:</p>
+      <RunMenu
         onSelectRun={props.onSelectRun}
         flagUpdate={props.flagUpdateRunList}
       />
@@ -280,45 +345,52 @@ function NewRunSetupTool(props) {
 
   let upperPanel;
   if (!startingNewRun) {
-    upperPanel = (<StartNewRunButton
-      onClick={() => setStartingNewRun(true)}
-    />);
+    upperPanel = (
+      <StartNewRunButton
+        onClick={() => setStartingNewRun(true)}
+      />
+    );
   } else {
     upperPanel = (
-      <div>
-        <CodeSelector
-          curBranch={curBranch}
-          curCommit={curCommit}
-          onSelectBranch={setCurBranch}
-          onSelectCommit={setCurCommit}
-        />
-        <RunConfig
-          curCommit={curCommit}
-          jobDir={jobDir}
-          outputDir={outputDir}
-          script={script}
-          onSetJobDir={setJobDir}
-          onSetOutputDir={setOutputDir}
-          onSetScript={setScript}
-        />
-        <ConfirmStartNewRunButton
-          curBranch={curBranch}
-          curCommit={curCommit}
-          onClick={() => {
-            setNotification(new LaunchInitiated());
-            (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
-              .then(runId => {
-                setNotification(new LaunchSuccessful(runId));
-                close();
+      <div className="box">
+        <div className="columns is-centered">
+          <div className="column">
+            <CodeSelector
+              curBranch={curBranch}
+              curCommit={curCommit}
+              onSelectBranch={setCurBranch}
+              onSelectCommit={setCurCommit}
+            />
+            <RunConfig
+              curCommit={curCommit}
+              jobDir={jobDir}
+              outputDir={outputDir}
+              script={script}
+              onSetJobDir={setJobDir}
+              onSetOutputDir={setOutputDir}
+              onSetScript={setScript}
+            />
+            <ConfirmStartNewRunButton
+              curBranch={curBranch}
+              curCommit={curCommit}
+              onClick={() => {
+                setNotification(new LaunchInitiated());
+                (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
+                  .then(() => {
+                    setNotification(new LaunchSuccessful());
+                    close();
+                  })
+                  .catch(err => setNotification(new LaunchFailed(err)))
+                );
                 props.triggerUpdateRunList();
-              })
-              .catch(err => setNotification(new LaunchFailed(err)))
-            );
-          }}
-        />
+              }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
+
 
   return (
     <div>
@@ -330,11 +402,17 @@ function NewRunSetupTool(props) {
 
 
 function StartNewRunButton(props) {
-    return (<button 
-      type="button"
-      onClick={() => props.onClick()}>
-        Start a new run
-      </button>
+    return (
+      <div className="columns is-centered">
+        <div className="column is-narrow">
+          <a
+            className="box has-background-info-light"
+            onClick={() => props.onClick()}
+          >
+            Start a new run
+          </a>
+        </div>
+      </div>
     );
 }
 
@@ -342,29 +420,37 @@ function StartNewRunButton(props) {
 function RunConfig(props) {
   if (props.curCommit) {
     return (
-      <div>
-        <p>Run configuration:</p>
-        <label>
-          Job directory:
-          <input type="text" 
-            onChange={e => props.onSetJobDir(e.target.value)}
-            value={props.jobDir}
-          />
-        </label>
-        <label>
-          Output directory:
-          <input type="text"
-            onChange={e => props.onSetOutputDir(e.target.value)}
-            value={props.outputDir}
-          />
-        </label>
-        <label>
-          Script file:
-          <input type="text"
-            onChange={e => props.onSetScript(e.target.value)}
-            value={props.script}
-          />
-        </label>
+      <div className="columns is-centered">
+        <div className="column">
+          <h3 class="subtitle">Run configuration:</h3>
+          <p>
+            <label>
+              Job directory: 
+              <input type="text" 
+                onChange={e => props.onSetJobDir(e.target.value)}
+                value={props.jobDir}
+              />
+            </label>
+          </p>
+          <p>
+            <label>
+              Output directory:
+              <input type="text"
+                onChange={e => props.onSetOutputDir(e.target.value)}
+                value={props.outputDir}
+              />
+            </label>
+          </p>
+          <p>
+            <label>
+              Script file:
+              <input type="text"
+                onChange={e => props.onSetScript(e.target.value)}
+                value={props.script}
+              />
+            </label>
+          </p>
+        </div>
       </div>
     );
   } else {
@@ -376,13 +462,16 @@ function RunConfig(props) {
 function ConfirmStartNewRunButton(props) {
   if (props.curBranch && props.curCommit) {
     return (
-      <button
-        type="button"
-        disabled={false}
-        onClick={props.onClick}
-      >
-        Start run.
-      </button>
+      <div>
+        <button
+          className="button is-primary"
+          type="button"
+          disabled={false}
+          onClick={props.onClick}
+        >
+          Start run.
+        </button>
+      </div>
     );
   } else {
     return (<div />);
@@ -393,24 +482,27 @@ function ConfirmStartNewRunButton(props) {
 function CodeSelector(props) {
   if (props.curBranch && props.curCommit) {
     return (
-      <div>
-        <SelectedCommitView
-          curBranch={props.curBranch}
-          curCommit={props.curCommit}
-          onUnsetCommit={() => props.onSelectCommit(undefined)}
-        />
-      </div>
+      <SelectedCommitView
+        curBranch={props.curBranch}
+        curCommit={props.curCommit}
+        onUnsetCommit={() => props.onSelectCommit(undefined)}
+      />
     );
   } else {
     return (
-      <div>
-        <BranchList
-          onSelectBranch={props.onSelectBranch}
-        />
-        <CommitList
-          branch={props.curBranch}
-          onSelectCommit={props.onSelectCommit}
-        />
+      <div className="columns">
+        <div className="column is-one-quarter">
+          <BranchMenu
+            curBranch = {props.curBranch}
+            onSelectBranch={props.onSelectBranch}
+          />
+        </div>
+        <div className="column">
+          <CommitMenu
+            branch={props.curBranch}
+            onSelectCommit={props.onSelectCommit}
+          />
+        </div>
       </div>
     );
   }
@@ -420,37 +512,55 @@ function CodeSelector(props) {
 function BranchItem(props) {
   return (
     <li>
-      <button 
-        type="button"
-        onClick={props.onClick}>
+      <a
+        className={(props.curBranch?.name === props.name ? " is-active" : "")}
+        onClick={props.onClick}
+      >
         {props.name}
-      </button>
+      </a>
     </li>
   );
 }
 
 
 function SelectedCommitView(props) {
+  const c = props.curCommit;
+
   return (
-    <button
-      type="button"
-      onClick={props.onUnsetCommit}
-    >
-      <p className="hash"> Selected commit: {props.curCommit.hash}</p>
-      <p className="branch">On branch: {props.curBranch.name}</p>
-      <p className="date">{props.curCommit.date}</p>
-      <p className="author">{props.curCommit.author}</p>
-      <p className="message">{props.curCommit.message}</p>
-      <p>(click to change)</p>
-    </button>
+    <div className="columns is-centered">
+    <div className="column">
+      <div className="box has-background-info-light">
+        <a className="has-text-dark" onClick={props.onUnsetCommit}>
+          <h3 className="subtitle"> Selected commit: (click to change)</h3>
+          <div className="columns is-mobile">
+            <div className="column is-two-thirds pb-0">
+              <p className="">{c.message}</p>
+            </div>
+            <div className="column is-one-third pb-0 has-text-right">
+              <p className="">{c.author}</p>
+            </div>
+          </div>
+          <div className="columns is-centered is-mobile">
+            <div className="column is-two-thirds pt-1">
+              <p className="">{formatDate(c.date)}</p>
+            </div>
+            <div className="column is-one-third pt-1 has-text-right">
+              <p className="tag">{c.hash.slice(0,7)}</p>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+    </div>
   );
 }
 
 
-function BranchList(props) {
+function BranchMenu(props) {
   const [branches, setBranches] = useState([]);
-  const onSelectBranch = props.onSelectBranch;
   const [notificationArea, setNotification] = useNotificationArea();
+  const onSelectBranch = props.onSelectBranch;
+  const curBranch = props.curBranch
 
   useEffect(() => {
     let isMounted = true;
@@ -461,6 +571,7 @@ function BranchList(props) {
             <BranchItem
               key={b.name}
               name = {b.name}
+              curBranch = {curBranch}
               onClick={() => onSelectBranch(b)}
             />
           )));
@@ -470,13 +581,13 @@ function BranchList(props) {
     );
 
     return () => { isMounted = false };
-  }, [onSelectBranch, setNotification]);
+  }, [curBranch, onSelectBranch, setNotification]);
 
   return (
-    <div>
-      <p>Branches:</p>
+    <div className="menu">
+      <p className="menu-label">Branches:</p>
       {notificationArea}
-      <ul>{branches}</ul>
+      <ul className="menu-list">{branches}</ul>
     </div>
   );
 }
@@ -486,7 +597,7 @@ function useNotificationArea() {
   const [notification, setNotification] = useState(undefined);
 
   let message;
-  let messageClass = "info";
+  let messageClass = "";
   if (notification === undefined) {
     message = "";
   } else if (typeof notification == "string") {
@@ -496,29 +607,36 @@ function useNotificationArea() {
   } else if (notification instanceof LaunchInitiated) {
     message = "Launching... it may take a few seconds";
   } else if (notification instanceof LaunchSuccessful) {
-    message = "Launch successful! Run id: " + notification.runId;
-    messageClass += " success";
+    message = "Launch successful! The run list will be updated with the new run in a few seconds.";
+    messageClass = "is-success";
   } else if (notification instanceof LaunchFailed) {
     message = "Launch failed. Error: " + notification.error;
-    messageClass += " warning";
+    messageClass = "is-danger";
   } else if (notification instanceof Error){
-    message = setNotification.toString();
-    messageClass += " warning";
+    message = notification.message;
+    messageClass = "is-danger";
   } else {
-    message = setNotification.toString();
+    message = notification.toString();
   }
 
-  const notificationArea = (
-    <p className={"notification-area " + messageClass}>
-      {message}
-    </p>
-  );
+
+  let notificationArea
+  if (message) {
+    console.log(message);
+    notificationArea = (
+      <div className={"notification break-words " + messageClass}>
+        {message}
+      </div>
+    );
+  } else {
+    notificationArea = (<></>);
+  }
 
   return [notificationArea, setNotification]
 }
 
 
-function CommitList(props) {
+function CommitMenu(props) {
   const [commits, setCommits] = useState([]);
   const branch = props.branch;
   const onSelectCommit = props.onSelectCommit;
@@ -526,30 +644,33 @@ function CommitList(props) {
 
   useEffect(() => {
     let isMounted = true;
-    if (branch !== undefined) {
+    if (branch) {
+      setNotification(undefined);
       (fetchCommits(branch.name)
         .then(cs => {
           if (isMounted) {
-            setCommits(cs.map(c => (
-              <CommitItem
-                key={c.hash}
-                commit={c}
-                onClick={() => onSelectCommit(c)}
-              />
-            )));
+              setCommits(cs.map(c => (
+                <CommitItem
+                  key={c.hash}
+                  commit={c}
+                  onClick={() => onSelectCommit(c)}
+                />
+              )));
           }
         })
         .catch(setNotification)
       );
+    } else {
+      setNotification("Please select a branch");
     }
     return () => { isMounted = false };
   }, [branch, onSelectCommit, setNotification]);
 
   return (
-    <div>
-      <p>Commits:</p>
+    <div className="menu">
+      <p className="menu-label">Commits:</p>
       {notificationArea}
-      <ul>{commits}</ul>
+      <ul className="menu-list">{commits}</ul>
     </div>
   );
 }
@@ -558,82 +679,104 @@ function CommitList(props) {
 function CommitItem(props) {
   const c = props.commit;
   return (
-    <li>
-      <button 
-        type="button"
-        onClick={props.onClick}>
-          <p className="hash">{c.hash}</p>
-          <p className="date">{c.date}</p>
-          <p className="author">{c.author}</p>
-          <p className="message">{c.message}</p>
-      </button>
+    <li className="has-background-info-light mb-2">
+      <a
+        className=""
+        onClick={props.onClick}
+      >
+          <div className="columns is-mobile">
+            <div className="column is-two-thirds pb-0">
+              <p>{c.message}</p>
+            </div>
+            <div className="column is-one-third pb-0 has-text-right">
+              <p>{c.author}</p>
+            </div>
+          </div>
+          <div className="columns is-mobile">
+            <div className="column is-two-thirds pt-1">
+              <p>{formatDate(c.date)}</p>
+            </div>
+            <div className="column is-one-third pt-1 has-text-right">
+              <p className="tag">{c.hash.slice(0,7)}</p>
+            </div>
+          </div>
+      </a>
     </li>
   );
 }
 
 
-function RunList(props) {
+function RunMenu(props) {
   const [runs, setRuns] = useState([]);
   const onSelectRun = props.onSelectRun;
   const flagUpdate = props.flagUpdate;
   const [notificationArea, setNotification] = useNotificationArea();
 
   useEffect(() => {
-    (fetchAllRuns()
+    const fetch_ = () => (fetchAllRuns()
       .then(rs => setRuns(rs.map(r =>
         (
-          <RunItem
-            key={r.id}
-            run={r}
-            onClick={() => onSelectRun(r)}
-          />
+          <li key={r.id} className="mb-2 mt-0">
+            <a onClick={() => onSelectRun(r)} className="p-0 m-0">
+              <RunCard run={r} />
+            </a>
+          </li>
         )
       )))
       .catch(setNotification)
     );
+
+    fetch_();
+    let timer = setInterval(fetch_, RUN_STATE_UPDATE_INTERVAL);
+    return () => clearTimeout(timer);
   }, [onSelectRun, flagUpdate, setNotification]);
 
   return (
-    <div>
-      {notificationArea}
-      <ul>{runs}</ul>
+    <div className="columns">
+      <div className="column">
+        {notificationArea}
+        <div className="menu">
+          <ul className="menu-list">{runs}</ul>
+        </div>
+      </div>
     </div>
   );
 }
 
+function RunCard(props) {
+  const runState = props.run.state;
 
-function RunItem(props) {
-  return (
-    <li>
-      <button 
-        type="button"
-        onClick={props.onClick}>
-        <p>Run {props.run.id}</p>
-        <p>{props.run.date}</p>
-        <p>Commit {props.run.code.commit_hash}</p>
-        <p>{props.run.code.description}</p>
-        <p>{props.run.state}</p>
-        <p></p>
-      </button>
-    </li>
+  const stateColor = (
+    runState === "Finished" ? "success":
+    runState === "Failed" ? "danger":
+    runState === "Running" ? "warning" :
+    undefined
   );
-}
-
-
-function WithNotification(props) {
-  const [notification, setNotification] = useState([]);
 
   return (
-    <div>
-      <NotificationArea message={notification} />
-      {props.content(setNotification)}
+    <div className={"has-background-" + stateColor + "-light p-4"}>
+      <div className="columns is-mobile">
+        <div className="column is-two-thirds p-0">
+          <p>
+            Run {props.run.id}
+          </p>
+          <p>{props.run.code.description}</p>
+        </div>
+        <div className="column is-one-third p-0 has-text-right">
+          <p>{runState}</p>
+        </div>
+      </div>
+      <div className="columns is-mobile">
+        <div className="column is-two-thirds p-0">
+          <p></p>
+          <p>{formatDate(props.run.date)}</p>
+        </div>
+        <div className="column is-one-third p-0 has-text-right">
+          <p className="tag">{props.run.code.commit_hash.slice(0,7)}</p>
+        </div>
+      </div>
     </div>
   );
-}
-
-
-function NotificationArea(props) {
-  return <div className="notification-area">{props.message}</div>;
 }
 
 

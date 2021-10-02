@@ -1,3 +1,7 @@
+@import "https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css";
+
+
+/************
 .App {
   text-align: center;
 }
@@ -36,9 +40,8 @@
     transform: rotate(360deg);
   }
 } 
+************/
 
-.run-output-view pre {
-  white-space: pre-wrap;
+.break-words {
   word-break: break-all;
-  text-align: left;
 }

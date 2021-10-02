@@ -31,16 +31,14 @@ export const mkRun = (commit, branch, job_dir, output_dir, script) => new Run(
     commit.hash,
     branch,
     commit.message),
-  (new Date()).toISOString(),
+  (new Date()),
   job_dir,
   output_dir,
   script);
 
 export function LaunchNotInitiated() {};
 export function LaunchInitiated() {};
-export function LaunchSuccessful(runId) {
-  this.runId = runId;
-};
+export function LaunchSuccessful() {};
 export function LaunchFailed(error) {
   this.error = error;
 };
@@ -49,7 +47,7 @@ export const addLogs = (logs1, logs2) => {
     let result = {};
 
     for (let context in logs1) {
-      result[context] = logs1[logList];
+      result[context] = logs1[context];
     }
 
     for (let context in logs2) {
@@ -74,3 +72,9 @@ export const getLastLogDate = (logs) => {
 
   return result
 }
+
+export const runStateLabel = (intState) => (
+  intState === 1 ? "Running" :
+  intState === 2 ? "Failed" :
+  intState === 3 ? "Finished" : undefined
+)

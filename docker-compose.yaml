@@ -5,7 +5,6 @@ services:
             context: .
             dockerfile: nginx/Dockerfile
             args:
-                FRONTEND_BUILD_ROOT: ${FRONTEND_BUILD_ROOT}
                 NGINX_CONF: ${NGINX_CONF}
         ports:
             - 80:80
