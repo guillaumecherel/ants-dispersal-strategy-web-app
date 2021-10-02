@@ -105,18 +105,16 @@ function RunResultsView(props) {
 
   useEffect(() => {
     const isRunning = runState === "Running";
+    let gotResults;
     const fetch_ = () => {
       (fetchRunResults(runId)
         .then(results => {
-          if (results.length !== 0) {
+          gotResults = results.length !== 0;
+          if (gotResults) {
             setResults(results);
             setNotification(undefined);
           } else {
-            if (isRunning) {
-              setNotification("Waiting for results while the simulation is running.");
-            } else {
-              setNotification("No result available")
-            }
+            setNotification("Waiting for some results…");
           }
         })
         .catch(setNotification)
@@ -125,7 +123,7 @@ function RunResultsView(props) {
 
     fetch_();
     let timer = setInterval(() => {
-        if (isRunning) {
+        if (isRunning || !gotResults) {
           fetch_();
         } else {
           clearInterval(timer);
@@ -266,12 +264,9 @@ function RunLogsView(props) {
     const fetch_ = () => (
       fetchNewLogs(runId, lastLogDate)
       .then(newLogs => {
-        console.log("Fetched Logs from " + lastLogDate);
-        console.log("New logs:" + JSON.stringify(newLogs));
         if (newLogs) {
           setLogs(l => addLogs(l, newLogs));
           lastLogDate = getLastLogDate(newLogs);
-          console.log("Last recieved log dated " + lastLogDate);
         }
       })
       .catch(setNotification)
