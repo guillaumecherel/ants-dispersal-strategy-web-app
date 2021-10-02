@@ -1,10 +1,10 @@
 import {useState, useEffect} from 'react';
 import './App.css';
-import {Branch, Code, Commit, Run, mkRun, LaunchNotInitiated, LaunchInitiated, 
+import {mkRun, LaunchNotInitiated, LaunchInitiated, 
   LaunchSuccessful, LaunchFailed, addLogs, getLastLogDate} from './Core';
 import {fetchBranches, fetchCommits, fetchAllRuns, launchRun, fetchNewLogs,
   fetchRun, fetchRunOutput, fetchRunResults} from './Requests';
-import {BACKEND_HOST, BACKEND_PORT, DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR,
+import {DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR,
   DEFAULT_SCRIPT, RUN_STATE_UPDATE_INTERVAL, RUN_OUTPUT_UPDATE_INTERVAL, 
   RUN_RESULTS_UPDATE_INTERVAL, RUN_LOGS_UPDATE_INTERVAL} from './Constants';
 import {formatDate, shortDate} from './Util';
@@ -73,7 +73,7 @@ function RunView(props) {
         }
     }, RUN_STATE_UPDATE_INTERVAL);
     return () => clearTimeout(timer);
-  }, []);
+  }, [runId]);
 
   return (
     <div>
@@ -133,7 +133,7 @@ function RunResultsView(props) {
         }
     }, RUN_RESULTS_UPDATE_INTERVAL);
     return () => clearTimeout(timer);
-  }, []);
+  }, [results, runId, runState, setNotification]);
 
   const visu = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -242,7 +242,7 @@ function RunOutputView(props) {
       }
     }, RUN_OUTPUT_UPDATE_INTERVAL);
     return () => clearInterval(timer);
-  }, []);
+  }, [runId, runState, setNotification]);
 
   return (
     <div className="columns">
@@ -259,12 +259,12 @@ function RunOutputView(props) {
 function RunLogsView(props) {
   const [lastLogDate, setLastLogDate] = useState(new Date(0));
   const [logs, setLogs] = useState(undefined);
-  const appendLogs = newLogs => setLogs(addLogs(logs, newLogs))
   const [notificationArea, setNotification] = useNotificationArea();
   const runId = props.run.id;
   const runState = props.run.state;
 
   useEffect(() => {
+    const appendLogs = newLogs => setLogs(addLogs(logs, newLogs))
     const fetch_ = () => (
       fetchNewLogs(runId, lastLogDate)
       .then(newLogs => {
@@ -283,7 +283,7 @@ function RunLogsView(props) {
       }
     }, RUN_LOGS_UPDATE_INTERVAL);
     return () => clearInterval(timer);
-  }, []);
+  }, [logs, lastLogDate, runId, runState, setNotification]);
 
   let logElements = [];
   for (let context in logs) {
@@ -306,6 +306,7 @@ function RunLogsView(props) {
   return (
     <div>
       <h2 className="subtitle">Logs</h2>
+      {notificationArea}
       {logElements}
     </div>
   );
