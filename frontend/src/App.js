@@ -101,20 +101,19 @@ function RunResultsView(props) {
   const [results, setResults] = useState(undefined);
   const runId = props.run.id;
   const runState = props.run.state;
-  const [notificationArea, setNotification] = useNotificationArea();
+  const [notificationArea, setNotification] = useNotificationArea("Loading…");
 
   useEffect(() => {
-    let isRunning = true;
+    const isRunning = runState === "Running";
     const fetch_ = () => {
       (fetchRunResults(runId)
         .then(results => {
-          isRunning = runState === "Running";
           if (results.length !== 0) {
             setResults(results);
             setNotification(undefined);
           } else {
             if (isRunning) {
-              setNotification("Waiting for the results.");
+              setNotification("Waiting for results while the simulation is running.");
             } else {
               setNotification("No result available")
             }
@@ -126,14 +125,14 @@ function RunResultsView(props) {
 
     fetch_();
     let timer = setInterval(() => {
-        if (isRunning || !results) {
+        if (isRunning) {
           fetch_();
         } else {
           clearInterval(timer);
         }
     }, RUN_RESULTS_UPDATE_INTERVAL);
     return () => clearTimeout(timer);
-  }, [results, runId, runState, setNotification]);
+  }, [runId, runState, setNotification]);
 
   const visu = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -598,8 +597,8 @@ function BranchMenu(props) {
 }
 
 
-function useNotificationArea() {
-  const [notification, setNotification] = useState(undefined);
+function useNotificationArea(msg) {
+  const [notification, setNotification] = useState(msg);
 
   let message;
   let messageClass = "";
