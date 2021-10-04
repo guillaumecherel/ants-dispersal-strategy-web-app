@@ -2,6 +2,7 @@
 
 from typing import Optional
 from collections import namedtuple
+from src.constants import ALLOWED_CORS
 from fastapi import FastAPI, Response, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from markupsafe import escape
@@ -12,10 +13,7 @@ from src.tasks import launch_run
 
 app = FastAPI()
 
-#TODO: put the allowed host in proper config
-allowed_origins = [
-        "http://localhost:3000",
-]
+allowed_origins = ALLOWED_CORS
 
 app.add_middleware(
         CORSMiddleware,

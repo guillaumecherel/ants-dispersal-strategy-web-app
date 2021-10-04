@@ -1,5 +1,5 @@
 import {Branch, Code, Commit, Run, runStateLabel} from './Core';
-import {BACKEND_BASE_ROUTE, JOB_REPO_API} from './Constants';
+import {JOB_REPO_API, BACKEND_BASE_URL} from './Constants';
 
 
 export async function fetchBranches() {
@@ -27,7 +27,7 @@ export async function fetchCommits(branch) {
 
 
 export async function fetchAllRuns(branch) {
-  let req = new URL(BACKEND_BASE_ROUTE + "all_runs");
+  let req = new URL("all_runs", BACKEND_BASE_URL);
   const errorMsg = "Could not fetch run list.";
   return (fetch(req)
     .catch(throwNetworkError(req,errorMsg))
@@ -52,7 +52,7 @@ export async function fetchAllRuns(branch) {
 
 
 export async function launchRun(run) {
-  let req = new URL(BACKEND_BASE_ROUTE + "launch/" + run.code.commit_hash);
+  let req = new URL("launch/" + run.code.commit_hash, BACKEND_BASE_URL);
   req.searchParams.set("branch", run.code.branch.name)
   req.searchParams.set("description", run.code.description)
   req.searchParams.set("timestamp", run.date.toISOString())
@@ -69,7 +69,7 @@ export async function launchRun(run) {
 
 
 export async function fetchNewLogs(runId, lastLogDate) {
-  let req = new URL(BACKEND_BASE_ROUTE + "logs/" + runId);
+  let req = new URL("logs/" + runId, BACKEND_BASE_URL);
   req.searchParams.set("from_time", lastLogDate.toISOString());
   const errorMsg = "Could not fetch logs.";
 
@@ -89,7 +89,7 @@ export async function fetchNewLogs(runId, lastLogDate) {
 
 
 export async function fetchRun(runId) {
-  let req = new URL(BACKEND_BASE_ROUTE + "run/" + runId);
+  let req = new URL("run/" + runId, BACKEND_BASE_URL);
   const errorMsg = "Could not fetch run.";
 
   return (fetch(req)
@@ -113,7 +113,7 @@ export async function fetchRun(runId) {
 
 
 export async function fetchRunOutput(runId) {
-  let req = new URL(BACKEND_BASE_ROUTE + "output/" + runId);
+  let req = new URL("output/" + runId, BACKEND_BASE_URL);
   const errorMsg = "Could not fetch run output.";
 
   return (fetch(req)
@@ -125,7 +125,7 @@ export async function fetchRunOutput(runId) {
 
 
 export async function fetchRunResults(runId) {
-  let req = new URL(BACKEND_BASE_ROUTE + "posterior_sample/" + runId);
+  let req = new URL("posterior_sample/" + runId, BACKEND_BASE_URL);
   const errorMsg = "Could not fetch posterior sample.";
 
   return (fetch(req)

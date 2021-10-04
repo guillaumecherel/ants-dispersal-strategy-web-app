@@ -7,6 +7,7 @@ def getenv_checked(env_name: str) -> str:
     else:
         return env
 
+ALLOWED_CORS = getenv_checked("ALLOWED_CORS").split()
 COLONY_COUNT = int(getenv_checked("COLONY_COUNT"))
 OPENMOLE_HOST = getenv_checked("OPENMOLE_HOST")
 OPENMOLE_SEND_JOB_TIMEOUT = int(getenv_checked("OPENMOLE_SEND_JOB_TIMEOUT"))
@@ -19,4 +20,3 @@ DB_USER = getenv_checked("DB_USER")
 DB_PASSWORD = getenv_checked("DB_PASSWORD")
 REPOSITORY_PATH = getenv_checked("JOB_REPO_LOCAL")
 TMP_DIR = getenv_checked("TMP_DIR")
-BACKEND_ROUTE_PREFIX = getenv_checked("BACKEND_ROUTE_PREFIX")
