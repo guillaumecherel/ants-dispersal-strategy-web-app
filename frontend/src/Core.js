@@ -1,3 +1,18 @@
+export function UIState(view) {
+  this.view = view;
+}
+
+export function HomeView() {
+
+}
+
+export function RunView(run, run_results_view, output_view, logs_view) {
+  this.run = run;
+  this.run_results_view = run_results_view;
+  this.output_view = output_view;
+  this.logs_view = logs_view;
+}
+
 export function Branch(name) {
   this.name = name;
 }

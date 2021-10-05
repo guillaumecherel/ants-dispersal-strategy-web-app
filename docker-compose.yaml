@@ -6,6 +6,15 @@ services:
             dockerfile: nginx/Dockerfile
             args:
                 NGINX_CONF: ${NGINX_CONF}
+                REACT_APP_BACKEND_BASE_URL:
+                REACT_APP_DEFAULT_JOB_DIR:
+                REACT_APP_DEFAULT_OUTPUT_DIR:
+                REACT_APP_DEFAULT_SCRIPT:
+                REACT_APP_RUN_STATE_UPDATE_INTERVAL:
+                REACT_APP_RUN_LOGS_UPDATE_INTERVAL:
+                REACT_APP_RUN_OUTPUT_UPDATE_INTERVAL:
+                REACT_APP_RUN_RESULTS_UPDATE_INTERVAL:
+                REACT_APP_JOB_REPO_API:
         ports:
             - 80:80
         environment:
@@ -13,6 +22,8 @@ services:
             BACKEND_PORT: ${BACKEND_PORT}
         depends_on:
             - backend
+        env_file:
+            - .env
     openmole:
         image: openmole/openmole:latest
         command: openmole-docker --rest --port ${OPENMOLE_PORT} --password ${OPENMOLE_PASSWORD} 

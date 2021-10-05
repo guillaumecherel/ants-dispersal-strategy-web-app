@@ -1,13 +1,23 @@
-# FROM node:16-alpine AS build
-# 
-# COPY frontend/ /usr/local/src/frontend
-# WORKDIR /usr/local/src/frontend
-# RUN npm install
-# RUN npm run build
-# 
+FROM node:16-alpine AS build
+
+COPY frontend/ /usr/local/src/frontend
+WORKDIR /usr/local/src/frontend
+RUN npm install
+ARG REACT_APP_BACKEND_BASE_URL
+ARG REACT_APP_DEFAULT_JOB_DIR
+ARG REACT_APP_DEFAULT_OUTPUT_DIR
+ARG REACT_APP_DEFAULT_SCRIPT
+ARG REACT_APP_RUN_STATE_UPDATE_INTERVAL
+ARG REACT_APP_RUN_LOGS_UPDATE_INTERVAL
+ARG REACT_APP_RUN_OUTPUT_UPDATE_INTERVAL
+ARG REACT_APP_RUN_RESULTS_UPDATE_INTERVAL
+ARG REACT_APP_JOB_REPO_API
+RUN npm run build
+
 FROM nginx:1.20-alpine
 
-COPY frontend/build /usr/share/nginx/html
+COPY --from=build /usr/local/src/frontend/build /usr/share/nginx/html
 
 ARG NGINX_CONF
 COPY $NGINX_CONF /etc/nginx/templates/default.conf.template
+

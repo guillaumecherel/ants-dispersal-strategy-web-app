@@ -1,8 +1,8 @@
 import dotenvconfig from 'dotenv/config';
 
-for (let key in process.env) {
-  console.log("Env " + key + "=" + process.env[key]);
-}
+// for (let key in process.env) {
+//   console.log("Env " + key + "=" + process.env[key]);
+// }
 
 export const BACKEND_BASE_URL = new URL(process.env.REACT_APP_BACKEND_BASE_URL);
 export const DEFAULT_JOB_DIR = process.env.REACT_APP_DEFAULT_JOB_DIR;
