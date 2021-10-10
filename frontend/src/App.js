@@ -242,10 +242,13 @@ const RunResultsViewComp = memo((props) => {
   const dispatch = props.dispatch;
 
   useEffect(() => {
+    let isMounted = true;
     const fetch_ = () => {
       (fetchRunResults(run.id)
         .then(newResults => {
-          dispatch({type: "runView.runResultsView.posteriorSample/set", value: newResults});
+          if(isMounted) {
+            dispatch({type: "runView.runResultsView.posteriorSample/set", value: newResults});
+          }
         })
         .catch(err => {
             dispatch({type: "runView.runResults.notification/set", value: "Waiting for some results…"});
@@ -256,7 +259,10 @@ const RunResultsViewComp = memo((props) => {
     if (run.isRunning() || results === undefined) {
       fetch_();
       let timer = setInterval(fetch_, RUN_RESULTS_UPDATE_INTERVAL)
-      return () => clearInterval(timer);
+      return () => {
+        isMounted = false;
+        clearInterval(timer)
+      };
     }
   });
 
@@ -781,9 +787,13 @@ const CommitItem = memo((props) => {
 
 const RunListViewComp = memo((props) => {
   useEffect(() => {
+    let isMounted = true;
+
     const fetch_ = () => (fetchAllRuns()
       .then(rs => {
-        props.dispatch({type: "homeView.runListView.runList/set", value: rs});
+        if (isMounted) {
+          props.dispatch({type: "homeView.runListView.runList/set", value: rs});
+        }
       })
       .catch(err => {
         props.dispatch({type: "homeView.runListView.notification/set", value: err});
@@ -792,7 +802,10 @@ const RunListViewComp = memo((props) => {
 
     fetch_();
     let timer = setInterval(fetch_, RUN_STATE_UPDATE_INTERVAL);
-    return () => clearInterval(timer);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    }
   });
 
   return (
