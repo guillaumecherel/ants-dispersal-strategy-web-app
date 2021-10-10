@@ -23,42 +23,21 @@ function reducer(state, action) {
         return state;
       }
 
-    case "runView.runResultsView.posteriorSample/set":
-      if (!equals(action.value, state.view.runResultsView.posteriorSample)) {
-        if (action.value.length !== 0) {
-          return set_("view", "runResultsView", "notification")(undefined)(
-            set_("view", "runResultsView", "posteriorSample")(action.value)(state)
-          );
-        } else if (!equals(state.view.runResultsView.notification, "Waiting for some results…")) {
-          return set_("view", "runResultsView", "notification")("Waiting for some results…")(state);
-        } else {
-          return state;
-        }
-      }
-
-    case "runView.runResultsView.notification/set":
-      if (!equals(action.value, state.view.runResultsView.notification)) {
-        return set_("view", "runResultsView", "notification")(action.value)(state);
+    case "homeView.runListView.notification/set":
+      if (!equals(action.value, state.view.runListView.notification)) {
+        return set_("view", "runListView", "notification")(action.value)(state);
       } else {
-        return state;
+        return state
       }
 
-    case "runView.runOutputView.output/set":
-      const output = state.view.runOutputView.output;
-      const newOutput = action.value;
-      if (!equals(output, newOutput)) {
-        state = set_("view", "runOutputView", "notification")(undefined)(state);
-        if (newOutput) {
-          state = set_("view", "runOutputView", "output")(newOutput)(state);
-        }
-      }
-      return state;
+    case "homeView.runListView.runList/addRun":
+      return set_("view", "runListView", "runList")([action.value, ...state.view.runListView.runList])(state);
 
-    case  "runView.runOutputView.notification/set":
-      if (!equals("Waiting for some output…", state.view.runOutputView.notification)) {
-        return set_("view", "runOutputView", "notification")(action.value)(state);
+    case "homeView.runListView.runList/set":
+      if (!equals(state.view.runListView.runList, action.value)) {
+        return set_("view", "runListView", "runList")(action.value)(state);
       } else {
-        return state;
+        return state
       }
 
     case "runView.runLogsView.logs/set":
@@ -77,38 +56,61 @@ function reducer(state, action) {
         return state;
       }
 
+    case  "runView.runOutputView.notification/set":
+      if (!equals("Waiting for some output…", state.view.runOutputView.notification)) {
+        return set_("view", "runOutputView", "notification")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "runView.runOutputView.output/set":
+      const output = state.view.runOutputView.output;
+      const newOutput = action.value;
+      if (!equals(output, newOutput)) {
+        state = set_("view", "runOutputView", "notification")(undefined)(state);
+        if (newOutput) {
+          state = set_("view", "runOutputView", "output")(newOutput)(state);
+        }
+      }
+      return state;
+
+    case "runView.runResultsView.notification/set":
+      if (!equals(action.value, state.view.runResultsView.notification)) {
+        return set_("view", "runResultsView", "notification")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "runView.runResultsView.posteriorSample/set":
+      if (!equals(action.value, state.view.runResultsView.posteriorSample)) {
+        if (action.value.length !== 0) {
+          return set_("view", "runResultsView", "notification")(undefined)(
+            set_("view", "runResultsView", "posteriorSample")(action.value)(state)
+          );
+        } else if (!equals(state.view.runResultsView.notification, "Waiting for some results…")) {
+          return set_("view", "runResultsView", "notification")("Waiting for some results…")(state);
+        } else {
+          return state;
+        }
+      }
+
+    case "homeView/openRunView":
+      return set_("view")(state.openRunView(action.value))(state);
+
     case "homeView.runSetupTool/open":
       return set_("view", "runSetupTool", "isOpen")(true)(state);
-
-    case "homeView.runSetupTool.jobDir/set":
-      return set_("view", "runSetupTool", "jobDir")(action.value)(state);
-
-    case "homeView.runSetupTool.outputDir/set":
-      return set_("view", "runSetupTool", "outputDir")(action.value)(state);
-
-    case "homeView.runSetupTool.script/set":
-      return set_("view", "runSetupTool", "script")(action.value)(state);
-
-    case "homeView.runListView.notification/set":
-      return set_("view", "runListView", "notification")(action.value)(state);
-
-    case "homeView.runListView.runList/addRun":
-      return set_("view", "runListView", "runList")([action.value, ...state.view.runListView.runList])(state);
 
     case "homeView.runSetupTool/close":
       return set_("view", "runSetupTool", "isOpen")(false)(state);
 
-    case "homeView.runSetupTool.commit/set":
-      return set_("view", "runSetupTool", "commit")(action.value)(state);
+    case "homeView.runSetupTool.branch/set":
+      return set_("view", "runSetupTool", "branch")(action.value)(state);
 
     case "homeView.runSetupTool.branchList/set":
       return set_("view", "runSetupTool", "branchList")(action.value)(state);
 
-    case "homeView.runSetupTool.notification/set":
-      return set_("view", "runSetupTool", "notification")(action.value)(state);
-
-    case "homeView.runSetupTool.branch/set":
-      return set_("view", "runSetupTool", "branch")(action.value)(state);
+    case "homeView.runSetupTool.commit/set":
+      return set_("view", "runSetupTool", "commit")(action.value)(state);
 
     case "homeView.runSetupTool.commitList/set":
       if(!equals(action.value, state.view.runSetupTool.commitList)) {
@@ -116,6 +118,9 @@ function reducer(state, action) {
       } else {
         return state;
       }
+
+    case "homeView.runSetupTool.jobDir/set":
+      return set_("view", "runSetupTool", "jobDir")(action.value)(state);
 
     case "homeView.runSetupTool.notification/set":
       const err = action.value;
@@ -125,25 +130,11 @@ function reducer(state, action) {
         return state;
       }
 
-    case "view.runSetupTool.commit":
-      return set_("view", "runSetupTool", "commit")(action.value)(state);
+    case "homeView.runSetupTool.outputDir/set":
+      return set_("view", "runSetupTool", "outputDir")(action.value)(state);
 
-    case "homeView.runListView.runList/set":
-      if (!equals(state.view.runListView.runList, action.value)) {
-        return set_("view", "runListView", "runList")(action.value)(state);
-      } else {
-        return state
-      }
-
-    case "homeView.runListView.notification/set":
-      if (!equals(action.value, state.view.runListView.notification)) {
-        return set_("view", "runListView", "notification")(action.value)(state);
-      } else {
-        return state
-      }
-
-    case "homeView/openRunView":
-      return set_("view")(state.openRunView(action.value))(state);
+    case "homeView.runSetupTool.script/set":
+      return set_("view", "runSetupTool", "script")(action.value)(state);
 
     default:
       throw Error("Unknown action " + JSON.stringify(action));
@@ -748,7 +739,7 @@ const CommitMenu = memo((props) => {
             key={c.hash}
             commit={c}
             onClick={() => 
-              props.dispatch({type: "view.runSetupTool.commit", value: c})
+              props.dispatch({type: "view.runSetupTool.commit/set", value: c})
             }
           />
         ))
