@@ -739,7 +739,7 @@ const CommitMenu = memo((props) => {
             key={c.hash}
             commit={c}
             onClick={() => 
-              props.dispatch({type: "view.runSetupTool.commit/set", value: c})
+              props.dispatch({type: "homeView.runSetupTool.commit/set", value: c})
             }
           />
         ))
