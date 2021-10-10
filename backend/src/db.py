@@ -5,11 +5,10 @@ from typing import Optional, Tuple
 from src.util import logger
 from pprint import pformat
 from sqlalchemy import create_engine, text, Table, MetaData, Column, Integer, \
-        Float, String, DateTime, Enum, ForeignKey, select, update
+        Float, String, Enum, ForeignKey, select, update
 from sqlalchemy.orm import declarative_base, relationship, Session
 from src.constants import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
 import urllib
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -19,7 +18,7 @@ class Log(Base):
     id = Column(Integer, primary_key = True)
     run_id = Column(Integer, ForeignKey("run.id"), nullable = False)
     context = Column(String, nullable = False)
-    timestamp = Column(DateTime, nullable = False)
+    timestamp = Column(Float, nullable = False)
     stdout = Column(String, nullable = False)
     stderr = Column(String, nullable = False)
 
@@ -41,7 +40,7 @@ class Run(Base):
 
     id = Column(Integer, primary_key = True)
     code_id = Column(String, ForeignKey("code.commit_hash"), nullable = False)
-    timestamp = Column(DateTime, nullable = False)
+    timestamp = Column(Float, nullable = False)
     state = Column(Enum(data.RunState), nullable = False)
     job_dir = Column(String, nullable = False)
     output_dir = Column(String, nullable = False)
@@ -153,12 +152,12 @@ def put_logs(run_id: int, logs: data.Logs) -> None:
         session.commit()
 
 
-def get_logs(run_id: int, from_time: Optional[datetime] = None) -> data.Logs:
+def get_logs(run_id: int, from_time: Optional[float] = None) -> data.Logs:
     if from_time is None:
         stmt = select(Log).where(Log.run_id == run_id)
     else:
         stmt = select(Log) \
-            .where(Log.run_id == run_id, Log.timestamp >= from_time) \
+            .where(Log.run_id == run_id, Log.timestamp > from_time) \
             .order_by(Log.timestamp)
 
     log_list: list[Tuple[data.Run, str, data.Log]] = []

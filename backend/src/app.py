@@ -6,7 +6,6 @@ from src.constants import ALLOWED_CORS
 from fastapi import FastAPI, Response, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from markupsafe import escape
-from datetime import datetime
 from src.data import Code, RunState, Run, RunWithId, RunOutput, Logs, PosteriorSample, Log
 from src import db
 from src.tasks import launch_run
@@ -76,7 +75,7 @@ async def get_output(run_id: str, response: Response) -> Optional[RunOutput]:
 
 @app.get("/logs/{run_id}")
 async def get_logs(response: Response, run_id: str,
-        from_time: Optional[datetime] = None) -> Optional[dict[str, list[Log]]]:
+        from_time: Optional[float] = None) -> Optional[dict[str, list[Log]]]:
     logs = db.get_logs(int(run_id), from_time)
 
     if logs is None:

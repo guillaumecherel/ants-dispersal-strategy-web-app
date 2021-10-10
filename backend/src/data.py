@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, validator
 from enum import Enum
-from datetime import datetime
+import time
 from typing import Tuple, Union, TextIO, Iterable
 from math import floor
 from src.constants import *
@@ -17,7 +17,7 @@ class Code(BaseModel, frozen=True, orm_mode = True):
 
 class Run(BaseModel, frozen=True, orm_mode = True):
     code: Code
-    timestamp: datetime
+    timestamp: float
     job_dir: str
     output_dir: str
     script: str
@@ -199,7 +199,7 @@ class RunOutput(BaseModel, frozen = True, orm_mode = True):
 
 
 class Log(BaseModel, frozen=True, orm_mode = True):
-    timestamp: datetime
+    timestamp: float
     stdout: str
     stderr: str
 
@@ -212,7 +212,7 @@ class Log(BaseModel, frozen=True, orm_mode = True):
 
 def log_now(stdout: str, stderr: str) -> "Log":
     return Log(
-            timestamp = datetime.now(),
+            timestamp = time.time(),
             stdout = stdout,
             stderr = stderr)
 

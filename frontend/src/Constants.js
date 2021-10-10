@@ -1,3 +1,4 @@
+// TODO do I really need this or is create-react-app doing all the necessary work?
 import dotenvconfig from 'dotenv/config';
 
 // for (let key in process.env) {

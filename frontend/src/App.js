@@ -1,288 +1,354 @@
-import {useState, useEffect} from 'react';
+import {useReducer, useEffect, memo} from 'react';
 import './App.css';
-import {mkRun, LaunchNotInitiated, LaunchInitiated, 
-  LaunchSuccessful, LaunchFailed, addLogs, getLastLogDate} from './Core';
+import {UiState, HomeView, newHomeView, RunView, mkRun, LaunchNotInitiated, 
+  LaunchInitiated, LaunchSuccessful, LaunchFailed, addLogs, getLastLogTimestamp, 
+  runStateColor} from './Core';
 import {fetchBranches, fetchCommits, fetchAllRuns, launchRun, fetchNewLogs,
   fetchRun, fetchRunOutput, fetchRunResults} from './Requests';
-import {DEFAULT_JOB_DIR, DEFAULT_OUTPUT_DIR,
-  DEFAULT_SCRIPT, RUN_STATE_UPDATE_INTERVAL, RUN_OUTPUT_UPDATE_INTERVAL, 
+import {RUN_STATE_UPDATE_INTERVAL, RUN_OUTPUT_UPDATE_INTERVAL,
   RUN_RESULTS_UPDATE_INTERVAL, RUN_LOGS_UPDATE_INTERVAL} from './Constants';
-import {formatDate, shortDate} from './Util';
+import {formatDate, shortDate, set_, equals, dateFromUnixEpoch} from './Util';
 import embed from 'vega-embed';
 
+function reducer(state, action) {
+  console.log("ACTION " + JSON.stringify(action.type));
+  switch(action.type) {
+    case "runView/close":
+      return set_("view")(state.view.close())(state);
+
+    case "runView.run/set":
+      if (!equals(state.view.run, action.value)) {
+        return set_("view", "run")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "runView.runResultsView.posteriorSample/set":
+      if (!equals(action.value, state.view.runResultsView.posteriorSample)) {
+        if (action.value.length !== 0) {
+          return set_("view", "runResultsView", "notification")(undefined)(
+            set_("view", "runResultsView", "posteriorSample")(action.value)(state)
+          );
+        } else if (!equals(state.view.runResultsView.notification, "Waiting for some results…")) {
+          return set_("view", "runResultsView", "notification")("Waiting for some results…")(state);
+        } else {
+          return state;
+        }
+      }
+
+    case "runView.runResultsView.notification/set":
+      if (!equals(action.value, state.view.runResultsView.notification)) {
+        return set_("view", "runResultsView", "notification")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "runView.runOutputView.output/set":
+      const output = state.view.runOutputView.output;
+      const newOutput = action.value;
+      if (!equals(output, newOutput)) {
+        state = set_("view", "runOutputView", "notification")(undefined)(state);
+        if (newOutput) {
+          state = set_("view", "runOutputView", "output")(newOutput)(state);
+        }
+      }
+      return state;
+
+    case  "runView.runOutputView.notification/set":
+      if (!equals("Waiting for some output…", state.view.runOutputView.notification)) {
+        return set_("view", "runOutputView", "notification")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "runView.runLogsView.logs/set":
+      let newLogs = action.value;
+      if (Object.keys(newLogs).length !== 0) {
+        state = set_("view", "runLogsView", "notification")(undefined)(state);
+        const l = addLogs(state.view.runLogsView.logs, newLogs);
+        state = set_("view", "runLogsView", "logs")(l)(state);
+      }
+      return state;
+
+    case  "runView.runLogsView.notification/set":
+      if (!equals(action.value, state.view.runLogsView.notification)) {
+        return set_("view", "runLogsView", "notification")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "homeView.runSetupTool/open":
+      return set_("view", "runSetupTool", "isOpen")(true)(state);
+
+    case "homeView.runSetupTool.jobDir/set":
+      return set_("view", "runSetupTool", "jobDir")(action.value)(state);
+
+    case "homeView.runSetupTool.outputDir/set":
+      return set_("view", "runSetupTool", "outputDir")(action.value)(state);
+
+    case "homeView.runSetupTool.script/set":
+      return set_("view", "runSetupTool", "script")(action.value)(state);
+
+    case "homeView.runListView.notification/set":
+      return set_("view", "runListView", "notification")(action.value)(state);
+
+    case "homeView.runListView.runList/addRun":
+      return set_("view", "runListView", "runList")([action.value, ...state.view.runListView.runList])(state);
+
+    case "homeView.runSetupTool/close":
+      return set_("view", "runSetupTool", "isOpen")(false)(state);
+
+    case "homeView.runSetupTool.commit/set":
+      return set_("view", "runSetupTool", "commit")(action.value)(state);
+
+    case "homeView.runSetupTool.branchList/set":
+      return set_("view", "runSetupTool", "branchList")(action.value)(state);
+
+    case "homeView.runSetupTool.notification/set":
+      return set_("view", "runSetupTool", "notification")(action.value)(state);
+
+    case "homeView.runSetupTool.branch/set":
+      return set_("view", "runSetupTool", "branch")(action.value)(state);
+
+    case "homeView.runSetupTool.commitList/set":
+      if(!equals(action.value, state.view.runSetupTool.commitList)) {
+        return set_("view", "runSetupTool", "commitList")(action.value)(state);
+      } else {
+        return state;
+      }
+
+    case "homeView.runSetupTool.notification/set":
+      const err = action.value;
+      if (!equals(err, state.view.runSetupTool.notification)) {
+        return set_("view", "runSetupTool", "notification")(err)(state);
+      } else {
+        return state;
+      }
+
+    case "view.runSetupTool.commit":
+      return set_("view", "runSetupTool", "commit")(action.value)(state);
+
+    case "homeView.runListView.runList/set":
+      if (!equals(state.view.runListView.runList, action.value)) {
+        return set_("view", "runListView", "runList")(action.value)(state);
+      } else {
+        return state
+      }
+
+    case "homeView.runListView.notification/set":
+      if (!equals(action.value, state.view.runListView.notification)) {
+        return set_("view", "runListView", "notification")(action.value)(state);
+      } else {
+        return state
+      }
+
+    case "homeView/openRunView":
+      return set_("view")(state.openRunView(action.value))(state);
+
+    default:
+      throw Error("Unknown action " + JSON.stringify(action));
+  }
+}
 
 function App(props) {
-  const [flagUpdateRunList, setFlagUpdateRunList] = useState(false);
-  const triggerUpdateRunList = () => setFlagUpdateRunList(!flagUpdateRunList);
-  const [selectedRun, setSelectedRun] = useState(undefined);
+  const [state, dispatch] = useReducer(reducer, new UiState(newHomeView()));
+
+  console.log("Rendering App");
 
   let mainView;
-  if (selectedRun) {
+  if (state.view instanceof RunView) {
     mainView = (
-      <RunView 
-        run={selectedRun}
-        close={() => setSelectedRun(undefined)}
+      <RunViewComp
+        runView={state.view}
+        dispatch={dispatch}
       />
     );
+  } else if (state.view instanceof HomeView) {
+     mainView = (
+       <HomeViewComp
+         homeView={state.view}
+         dispatch={dispatch}
+       />
+     );
   } else {
-    mainView = (
-      <HomeView 
-        triggerUpdateRunList={triggerUpdateRunList}
-        onSelectRun={setSelectedRun}
-        flagUpdateRunList={flagUpdateRunList}
-      />
-    );
+    throw Error("Unknown view " + JSON.stringify(state.view));
   }
 
-  return (
-    <section className="section">
-      <div className="container is-max-desktop">
-        <h1 className="title has-text-centered">Ant dispersal strategy simulation experiments</h1>
-        <div className="columns is-centered">
-          <div className="column">
-            {mainView}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+   return (
+     <section className="section">
+       <div className="container is-max-desktop">
+         <h1 className="title has-text-centered">Ant dispersal strategy simulation experiments</h1>
+         <div className="columns is-centered">
+           <div className="column">
+             {mainView}
+           </div>
+         </div>
+       </div>
+     </section>
+   );
 }
 
 
-function RunView(props) {
-  const [run, setRun] = useState(props.run);
-  const runId = props.run.id;
+const RunViewComp = memo((props) => {
+   const dispatch = props.dispatch;
 
-  useEffect(() => {
-    let isRunning = true;
-    const fetch_ = () => {
-      (fetchRun(runId)
-        .then(run => {
-          setRun(run);
-          isRunning = run.state === "Running";
-        })
-      );
-    }
+   useEffect(() => {
+     const fetch_ = () => {
+       (fetchRun(props.runView.run.id)
+         .then(newRun => {
+           props.dispatch({type: "runView.run/set", value: newRun});
+         })
+       );
+     }
 
-    fetch_();
-    let timer = setInterval(() => {
-        if (!isRunning) {
-          clearInterval(timer);
-        } else {
-          fetch_();
-        }
-    }, RUN_STATE_UPDATE_INTERVAL);
-    return () => clearTimeout(timer);
-  }, [runId]);
+     if (props.runView.run.isRunning()) {
+       fetch_();
+       let timer = setInterval(fetch_, RUN_STATE_UPDATE_INTERVAL);
+       return () => {
+         clearInterval(timer)
+       };
+     }
+   });
 
   return (
     <div>
-      <button className="block button" onClick={props.close}>Back</button>
+      <button 
+        className="block button"
+        onClick={() => props.dispatch({type: "runView/close"})}
+      >
+        Back
+      </button>
 
       <div className="block">
-        <RunCard run={run}/>
+        <RunCard run={props.runView.run}/>
       </div>
 
-      <RunResultsView
-        run={run}
+      <RunResultsViewComp
+        run={props.runView.run}
+        runResultsView={props.runView.runResultsView}
+        dispatch={props.dispatch}
       />
-      <RunOutputView
-        run={run}
+      <RunOutputViewComp
+        run={props.runView.run}
+        runOutputView={props.runView.runOutputView}
+        dispatch={props.dispatch}
       />
-      <RunLogsView
-        run={run}
+      <RunLogsViewComp
+        runLogsView={props.runView.runLogsView}
+        run={props.runView.run}
+        dispatch={props.dispatch}
       />
     </div>
   );
-}
+});
 
 
-function RunResultsView(props) {
-  const [results, setResults] = useState(undefined);
-  const runId = props.run.id;
-  const runState = props.run.state;
-  const [notificationArea, setNotification] = useNotificationArea("Loading…");
+const RunResultsViewComp = memo((props) => {
+  const results = props.runResultsView.posteriorSample;
+  const run = props.run;
+  const notification = props.runResultsView.notification;
+  const visu = props.runResultsView.vegaSpec;
+  const dispatch = props.dispatch;
 
   useEffect(() => {
-    const isRunning = runState === "Running";
-    let gotResults;
     const fetch_ = () => {
-      (fetchRunResults(runId)
-        .then(results => {
-          gotResults = results.length !== 0;
-          if (gotResults) {
-            setResults(results);
-            setNotification(undefined);
-          } else {
-            setNotification("Waiting for some results…");
-          }
+      (fetchRunResults(run.id)
+        .then(newResults => {
+          dispatch({type: "runView.runResultsView.posteriorSample/set", value: newResults});
         })
-        .catch(setNotification)
+        .catch(err => {
+            dispatch({type: "runView.runResults.notification/set", value: "Waiting for some results…"});
+        })
       );
     };
 
-    fetch_();
-    let timer = setInterval(() => {
-        if (isRunning || !gotResults) {
-          fetch_();
-        } else {
-          clearInterval(timer);
-        }
-    }, RUN_RESULTS_UPDATE_INTERVAL);
-    return () => clearTimeout(timer);
-  }, [runId, runState, setNotification]);
-
-  const visu = {
-    $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-    data: {
-      values: results
-    },
-    transform: [
-      {
-        fold: [
-          "nest_quality_assessment_error",
-          "percentage_foragers",
-          "number_nests",
-          "exploring_phase"
-        ],
-        as: ["parameter", "value"]
-      },
-      {
-        density: "value",
-        groupby: ["colony_id", "parameter"],
-      }
-    ],
-    facet: {
-      row: {
-        field: "colony_id",
-        align: "none",
-      },
-      column: {
-        field: "parameter",
-        sort: [
-          "nest_quality_assessment_error",
-          "percentage_foragers",
-          "number_nests",
-          "exploring_phase"
-        ],
-        header: {
-          titleOrient: "bottom",
-          labelOrient: "bottom",
-        }
-      }
-    },
-    spec: {
-      width:100,
-      height: 60,
-      mark: 'line',
-      encoding: {
-        y: {
-          field: 'density',
-          type: 'quantitative',
-        },
-        x: {
-          field: 'value',
-          type: 'quantitative',
-        }
-      }
-    },
-    resolve: {scale: {x: "independent", y: "independent"}},
-    config: {
-      facet: {
-        spacing: 5,
-      }
-    },
-  };
+    if (run.isRunning() || results === undefined) {
+      fetch_();
+      let timer = setInterval(fetch_, RUN_RESULTS_UPDATE_INTERVAL)
+      return () => clearInterval(timer);
+    }
+  });
 
   useEffect(() => {
     if (results) {
-      embed('#vis', visu);
+      embed('#vis', visu(results));
     }
-  })
+  });
 
   return (
     <div className="">
       <h3 className="subtitle">Run results</h3>
-      {notificationArea}
+      <NotificationArea msg={notification} />
       <div id="vis"></div>
     </div>
   );
-}
+});
 
 
-function RunOutputView(props) {
-  const [output, setOutput] = useState(undefined);
-  const runId = props.run.id;
-  const runState = props.run.state;
-  const [notificationArea, setNotification] = useNotificationArea("Loading…");
+const RunOutputViewComp = memo((props) => {
+  const run = props.run;
+  const output = props.runOutputView.output;
+  const notification = props.runOutputView.notification;
+  const dispatch = props.dispatch;
 
   useEffect(() => {
-    let isRunning = true;
     const fetch_ = () => {
-      (fetchRunOutput(runId)
-        .then(output => {
-          setNotification(undefined);
-          if (output) {
-            setOutput(output);
-          }
-          isRunning = runState === "Running";
+      (fetchRunOutput(run.id)
+        .then(newOutput => {
+          dispatch({type: "runView.runOutputView.output/set", value: newOutput});
         })
-        .catch(err => setNotification("Waiting for some output…"))
+        .catch(err => {
+          dispatch({type: "runView.runOutputView.notification/set", value: "Waiting for some output…"})
+        })
       );
     }
 
-    fetch_();
-    let timer = setInterval(() => {
-      if (!isRunning) {
-        clearInterval(timer);
-      } else {
-        fetch_();
-      }
-    }, RUN_OUTPUT_UPDATE_INTERVAL);
-    return () => clearInterval(timer);
-  }, [runId, runState, setNotification]);
+
+    if (run.isRunning() || output === undefined) {
+      fetch_();
+      let timer = setInterval(fetch_, RUN_OUTPUT_UPDATE_INTERVAL);
+      return () => clearInterval(timer);
+    }
+  });
 
   return (
     <div className="columns">
     <div className="column is-centered is-full">
       <h2 className="subtitle">Run output</h2>
-      {notificationArea}
+      <NotificationArea msg={notification} />
       <div className="break-words is-family-monospace">{output}</div>
     </div>
     </div>
   );
-}
+});
 
 
-function RunLogsView(props) {
-  const [logs, setLogs] = useState(undefined);
-  const [notificationArea, setNotification] = useNotificationArea();
-  const runId = props.run.id;
-  const runState = props.run.state;
+const RunLogsViewComp = memo((props) => {
+  const logs = props.runLogsView.logs;
+  const run = props.run;
+  const notification = props.runLogsView.notification;
+  const dispatch = props.dispatch;
 
   useEffect(() => {
-    let lastLogDate = new Date(0);
+    let lastLogTimestamp = getLastLogTimestamp(logs);
     const fetch_ = () => (
-      fetchNewLogs(runId, lastLogDate)
+      fetchNewLogs(run.id, lastLogTimestamp)
       .then(newLogs => {
-        if (newLogs) {
-          setLogs(l => addLogs(l, newLogs));
-          lastLogDate = getLastLogDate(newLogs);
-        }
+        dispatch({type: "runView.runLogsView.logs/set", value: newLogs});
+        const newLastLogTimestamp = getLastLogTimestamp(newLogs);
+        lastLogTimestamp = Math.max(lastLogTimestamp, newLastLogTimestamp);
       })
-      .catch(setNotification)
+      .catch(err => {
+        dispatch({type: "runView.runLogsView.notification/set", value: err});
+      })
     );
 
-    fetch_();
-    let timer = setInterval(() => {
-      if (runState !== "Running") {
-        clearInterval(timer);
-      } else {
-        fetch_()
-      }
-    }, RUN_LOGS_UPDATE_INTERVAL);
-    return () => clearInterval(timer);
-  }, [runId, runState, setNotification]);
+    if (run.isRunning() || logs === undefined) {
+      fetch_();
+      let timer = setInterval(fetch_, RUN_LOGS_UPDATE_INTERVAL);
+      return () => clearInterval(timer);
+    }
+  });
 
   let logElements = [];
   for (let context in logs) {
@@ -291,7 +357,7 @@ function RunLogsView(props) {
         <div className="columns has-background-light mb-4">
           <div className="column is-2">
             <p className="tag">{context}</p>
-            <p className="">{shortDate(log.timestamp)}</p>
+            <p className="">{shortDate(dateFromUnixEpoch(log.timestamp))}</p>
           </div>
           <div className="column">
             <p className="block is-family-monospace break-words p-3 m-0 mb-3 has-background-white">Stdout: {log.stdout}</p>
@@ -305,50 +371,35 @@ function RunLogsView(props) {
   return (
     <div>
       <h2 className="subtitle">Logs</h2>
-      {notificationArea}
+      <NotificationArea msg={notification} />
       {logElements}
     </div>
   );
-}
+});
 
 
-function HomeView(props) {
+const HomeViewComp = memo((props) => {
   return (
     <div>
-      <NewRunSetupTool 
-        triggerUpdateRunList={props.triggerUpdateRunList}
+      <NewRunSetupToolComp
+        runSetupTool={props.homeView.runSetupTool}
+        dispatch={props.dispatch}
       />
       <p className="block mt-5">Or choose a run from the list below to see the logs and results:</p>
-      <RunMenu
-        onSelectRun={props.onSelectRun}
-        flagUpdate={props.flagUpdateRunList}
+      <RunListViewComp
+        runListView={props.homeView.runListView}
+        dispatch={props.dispatch}
       />
     </div>
   );
-}
+});
 
 
-function NewRunSetupTool(props) {
-  const [startingNewRun, setStartingNewRun] = useState(false);
-  const [curBranch, setCurBranch] = useState(undefined);
-  const [curCommit, setCurCommit] = useState(undefined);
-  const [jobDir, setJobDir] = useState(DEFAULT_JOB_DIR);
-  const [outputDir, setOutputDir] = useState(DEFAULT_OUTPUT_DIR);
-  const [script, setScript] = useState(DEFAULT_SCRIPT);
-  const [notificationArea, setNotification] = useNotificationArea();
-
-  const close = msg => {
-    setCurBranch(undefined);
-    setCurCommit(undefined);
-    setStartingNewRun(false);
-  };
-
+const NewRunSetupToolComp = memo((props) => {
   let upperPanel;
-  if (!startingNewRun) {
+  if (!props.runSetupTool.isOpen) {
     upperPanel = (
-      <StartNewRunButton
-        onClick={() => setStartingNewRun(true)}
-      />
+      <StartNewRunButton dispatch={props.dispatch} />
     );
   } else {
     upperPanel = (
@@ -356,34 +407,27 @@ function NewRunSetupTool(props) {
         <div className="columns is-centered">
           <div className="column">
             <CodeSelector
-              curBranch={curBranch}
-              curCommit={curCommit}
-              onSelectBranch={setCurBranch}
-              onSelectCommit={setCurCommit}
+              branch={props.runSetupTool.branch}
+              commit={props.runSetupTool.commit}
+              branchList={props.runSetupTool.branchList}
+              commitList={props.runSetupTool.commitList}
+              notification={props.runSetupTool.notification}
+              dispatch={props.dispatch}
             />
-            <RunConfig
-              curCommit={curCommit}
-              jobDir={jobDir}
-              outputDir={outputDir}
-              script={script}
-              onSetJobDir={setJobDir}
-              onSetOutputDir={setOutputDir}
-              onSetScript={setScript}
+            <RunConfigComp
+              commit={props.runSetupTool.commit}
+              jobDir={props.runSetupTool.jobDir}
+              outputDir={props.runSetupTool.outputDir}
+              script={props.runSetupTool.script}
+              dispatch={props.dispatch}
             />
             <ConfirmStartNewRunButton
-              curBranch={curBranch}
-              curCommit={curCommit}
-              onClick={() => {
-                setNotification(new LaunchInitiated());
-                (launchRun(mkRun(curCommit, curBranch, jobDir, outputDir, script))
-                  .then(run => {
-                    setNotification(new LaunchSuccessful(run));
-                    close();
-                  })
-                  .catch(err => setNotification(new LaunchFailed(err)))
-                );
-                props.triggerUpdateRunList();
-              }}
+              commit={props.runSetupTool.commit}
+              branch={props.runSetupTool.branch}
+              jobDir={props.runSetupTool.jobDir}
+              outputDir={props.runSetupTool.outputDir}
+              script={props.runSetupTool.script}
+              dispatch={props.dispatch}
             />
           </div>
         </div>
@@ -395,39 +439,40 @@ function NewRunSetupTool(props) {
   return (
     <div>
       {upperPanel}
-      {notificationArea}
+      <NotificationArea msg={props.notification} />
     </div>
   );
-}
+});
 
 
-function StartNewRunButton(props) {
+const StartNewRunButton = memo((props) => {
     return (
       <div className="columns is-centered">
         <div className="column is-narrow">
           <a
             className="box has-background-info-light"
-            onClick={() => props.onClick()}
+            onClick={() => props.dispatch({type: "homeView.runSetupTool/open"})}
           >
             Start a new run
           </a>
         </div>
       </div>
     );
-}
+});
 
 
-function RunConfig(props) {
-  if (props.curCommit) {
+const RunConfigComp = memo((props) => {
+  if (props.commit) {
     return (
       <div className="columns is-centered">
         <div className="column">
-          <h3 class="subtitle">Run configuration:</h3>
+          <h3 className="subtitle">Run configuration:</h3>
           <p>
             <label>
-              Job directory: 
-              <input type="text" 
-                onChange={e => props.onSetJobDir(e.target.value)}
+              Job directory:
+              <input type="text"
+                onChange={e => 
+                  props.dispatch({type: "homeView.runSetupTool.jobDir/set", value: e.target.value})}
                 value={props.jobDir}
               />
             </label>
@@ -436,7 +481,8 @@ function RunConfig(props) {
             <label>
               Output directory:
               <input type="text"
-                onChange={e => props.onSetOutputDir(e.target.value)}
+                onChange={e => 
+                  props.dispatch({type: "homeView.runSetupTool.outputDir/set", value: e.target.value})}
                 value={props.outputDir}
               />
             </label>
@@ -445,7 +491,8 @@ function RunConfig(props) {
             <label>
               Script file:
               <input type="text"
-                onChange={e => props.onSetScript(e.target.value)}
+                onChange={e => 
+                  props.dispatch({type: "homeView.runSetupTool.script/set", value: e.target.value})}
                 value={props.script}
               />
             </label>
@@ -456,18 +503,33 @@ function RunConfig(props) {
   } else {
     return (<div />);
   }
-}
+});
 
 
-function ConfirmStartNewRunButton(props) {
-  if (props.curBranch && props.curCommit) {
+const ConfirmStartNewRunButton = memo((props) => {
+  const confirmLaunchRun = () => {
+    props.dispatch({type: "homeView.runListView.notification/set", value: new LaunchInitiated()});
+    (launchRun(mkRun(props.commit, props.branch, props.jobDir, props.outputDir,
+      props.script))
+      .then(run => {
+        props.dispatch({type: "homeView.runListView.notification/set", value: new LaunchSuccessful(run)});
+        props.dispatch({type: "homeView.runListView.runList/addRun", value: run});
+        props.dispatch({type: "homeView.runSetupTool/close"});
+      })
+      .catch(err => {
+        props.dispatch({type: "homeView.runListView.notification/set", value: new LaunchFailed(err)});
+      })
+    );
+  }
+
+  if (props.commit) {
     return (
       <div>
         <button
           className="button is-primary"
           type="button"
           disabled={false}
-          onClick={props.onClick}
+          onClick={confirmLaunchRun}
         >
           Start run.
         </button>
@@ -476,16 +538,18 @@ function ConfirmStartNewRunButton(props) {
   } else {
     return (<div />);
   }
-}
+});
 
 
-function CodeSelector(props) {
-  if (props.curBranch && props.curCommit) {
+const CodeSelector = memo((props) => {
+  if (props.branch && props.commit) {
     return (
       <SelectedCommitView
-        curBranch={props.curBranch}
-        curCommit={props.curCommit}
-        onUnsetCommit={() => props.onSelectCommit(undefined)}
+        branch={props.branch}
+        commit={props.commit}
+        unsetCommit={() => 
+          props.dispatch({type: "homeView.runSetupTool.commit/set", value: undefined})
+        }
       />
     );
   } else {
@@ -493,44 +557,49 @@ function CodeSelector(props) {
       <div className="columns">
         <div className="column is-one-quarter">
           <BranchMenu
-            curBranch = {props.curBranch}
-            onSelectBranch={props.onSelectBranch}
+            branch={props.branch}
+            notification={props.notification}
+            branchList={props.branchList}
+            dispatch={props.dispatch}
           />
         </div>
         <div className="column">
           <CommitMenu
-            branch={props.curBranch}
-            onSelectCommit={props.onSelectCommit}
+            branch={props.branch}
+            commit={props.commit}
+            commitList={props.commitList}
+            notification={props.notification}
+            dispatch={props.dispatch}
           />
         </div>
       </div>
     );
   }
-}
+});
 
 
-function BranchItem(props) {
+const BranchItem = memo((props) => {
   return (
     <li>
       <a
-        className={(props.curBranch?.name === props.name ? " is-active" : "")}
+        className={(props.branch?.name === props.name ? " is-active" : "")}
         onClick={props.onClick}
       >
         {props.name}
       </a>
     </li>
   );
-}
+});
 
 
-function SelectedCommitView(props) {
-  const c = props.curCommit;
+const SelectedCommitView = memo((props) => {
+  const c = props.commit;
 
   return (
     <div className="columns is-centered">
     <div className="column">
       <div className="box has-background-info-light">
-        <a className="has-text-dark" onClick={props.onUnsetCommit}>
+        <a className="has-text-dark" onClick={props.unsetCommit}>
           <h3 className="subtitle"> Selected commit: (click to change)</h3>
           <div className="columns is-mobile">
             <div className="column is-two-thirds pb-0">
@@ -553,48 +622,55 @@ function SelectedCommitView(props) {
     </div>
     </div>
   );
-}
+});
 
 
-function BranchMenu(props) {
-  const [branches, setBranches] = useState([]);
-  const [notificationArea, setNotification] = useNotificationArea();
-  const onSelectBranch = props.onSelectBranch;
-  const curBranch = props.curBranch
-
+const BranchMenu = memo((props) => {
   useEffect(() => {
     let isMounted = true;
-    (fetchBranches()
-      .then(bs => {
-        if (isMounted) {
-          setBranches(bs.map(b => (
-            <BranchItem
-              key={b.name}
-              name = {b.name}
-              curBranch = {curBranch}
-              onClick={() => onSelectBranch(b)}
-            />
-          )));
-        }
-      })
-      .catch(setNotification)
-    );
+
+    if (props.branchList === undefined) {
+      (fetchBranches()
+        .then(bs => {
+          if (isMounted) {
+            props.dispatch({type: "homeView.runSetupTool.branchList/set", value: bs});
+          }
+        })
+        .catch(err => {
+          if (!equals(err, props.notification)) {
+            props.dispatch({type: "homeView.runSetupTool.notification/set", value: err});
+          }
+        })
+      );
+    }
 
     return () => { isMounted = false };
-  }, [curBranch, onSelectBranch, setNotification]);
+  });
+
 
   return (
     <div className="menu">
       <p className="menu-label">Branches:</p>
-      {notificationArea}
-      <ul className="menu-list">{branches}</ul>
+      <NotificationArea msg={props.notification} />
+      <ul className="menu-list">{
+        props.branchList?.map(b => (
+            <BranchItem
+              key={b.name}
+              name = {b.name}
+              branch = {props.branch}
+              onClick={() => 
+                props.dispatch({type: "homeView.runSetupTool.branch/set", value: b})
+              }
+            />
+          ))
+      }</ul>
     </div>
   );
-}
+});
 
 
-function useNotificationArea(msg) {
-  const [notification, setNotification] = useState(msg);
+const NotificationArea = memo((props) => {
+  const notification = props.msg;
 
   let message;
   let messageClass = "";
@@ -620,63 +696,69 @@ function useNotificationArea(msg) {
   }
 
 
-  let notificationArea
   if (message) {
     console.log(message);
-    notificationArea = (
+    return (
       <div className={"notification break-words " + messageClass}>
         {message}
       </div>
     );
   } else {
-    notificationArea = (<></>);
+    return (<></>);
   }
-
-  return [notificationArea, setNotification]
-}
+});
 
 
-function CommitMenu(props) {
-  const [commits, setCommits] = useState([]);
-  const branch = props.branch;
-  const onSelectCommit = props.onSelectCommit;
-  const [notificationArea, setNotification] = useNotificationArea();
+const CommitMenu = memo((props) => {
+  let notifMsg;
+  if (!props.notification) {
+    if (props.branch) {
+      notifMsg = undefined;
+    } else {
+      notifMsg = "Please select a branch";
+    }
+  } else {
+    notifMsg = props.notification;
+  }
 
   useEffect(() => {
     let isMounted = true;
-    if (branch) {
-      setNotification(undefined);
-      (fetchCommits(branch.name)
+    if (props.branch && props.commitList === undefined) {
+      (fetchCommits(props.branch.name)
         .then(cs => {
           if (isMounted) {
-              setCommits(cs.map(c => (
-                <CommitItem
-                  key={c.hash}
-                  commit={c}
-                  onClick={() => onSelectCommit(c)}
-                />
-              )));
+            props.dispatch({type: "homeView.runSetupTool.commitList/set", value: cs});
           }
         })
-        .catch(setNotification)
+        .catch(err => {
+          props.dispatch({type: "homeView.runSetupTool.notification/set", value: err})
+        })
       );
-    } else {
-      setNotification("Please select a branch");
     }
     return () => { isMounted = false };
-  }, [branch, onSelectCommit, setNotification]);
+  });
 
   return (
     <div className="menu">
       <p className="menu-label">Commits:</p>
-      {notificationArea}
-      <ul className="menu-list">{commits}</ul>
+      <NotificationArea msg={notifMsg} />
+      <ul className="menu-list">{
+        props.commitList?.map(c => (
+          <CommitItem
+            key={c.hash}
+            commit={c}
+            onClick={() => 
+              props.dispatch({type: "view.runSetupTool.commit", value: c})
+            }
+          />
+        ))
+      }</ul>
     </div>
   );
-}
+});
 
 
-function CommitItem(props) {
+const CommitItem = memo((props) => {
   const c = props.commit;
   return (
     <li className="has-background-info-light mb-2">
@@ -703,81 +785,80 @@ function CommitItem(props) {
       </a>
     </li>
   );
-}
+});
 
 
-function RunMenu(props) {
-  const [runs, setRuns] = useState([]);
-  const onSelectRun = props.onSelectRun;
-  const flagUpdate = props.flagUpdate;
-  const [notificationArea, setNotification] = useNotificationArea();
-
+const RunListViewComp = memo((props) => {
   useEffect(() => {
     const fetch_ = () => (fetchAllRuns()
-      .then(rs => setRuns(rs.map(r =>
-        (
-          <li key={r.id} className="mb-2 mt-0">
-            <a onClick={() => onSelectRun(r)} className="p-0 m-0">
-              <RunCard run={r} />
-            </a>
-          </li>
-        )
-      )))
-      .catch(setNotification)
+      .then(rs => {
+        props.dispatch({type: "homeView.runListView.runList/set", value: rs});
+      })
+      .catch(err => {
+        props.dispatch({type: "homeView.runListView.notification/set", value: err});
+      })
     );
 
     fetch_();
     let timer = setInterval(fetch_, RUN_STATE_UPDATE_INTERVAL);
-    return () => clearTimeout(timer);
-  }, [onSelectRun, flagUpdate, setNotification]);
+    return () => clearInterval(timer);
+  });
 
   return (
     <div className="columns">
       <div className="column">
-        {notificationArea}
+        <NotificationArea msg={props.runListView.notification} />
         <div className="menu">
-          <ul className="menu-list">{runs}</ul>
+          <ul className="menu-list">{
+            props.runListView.runList?.map(r => (
+                <li key={r.id} className="mb-2 mt-0">
+                  <a onClick={() =>
+                    props.dispatch({type: "homeView/openRunView", value: r})
+                    }
+                    className="p-0 m-0"
+                  >
+                    <RunCard run={r} />
+                  </a>
+                </li>
+              ))
+          }</ul>
         </div>
       </div>
     </div>
   );
-}
+});
 
-function RunCard(props) {
-  const runState = props.run.state;
 
-  const stateColor = (
-    runState === "Finished" ? "success":
-    runState === "Failed" ? "danger":
-    runState === "Running" ? "warning" :
-    undefined
-  );
+const RunCard = memo((props) => {
+  const run = props.run;
+
+  const stateColor = runStateColor(run.state);
 
   return (
     <div className={"has-background-" + stateColor + "-light p-4"}>
       <div className="columns is-mobile">
         <div className="column is-two-thirds p-0">
           <p>
-            Run {props.run.id}
+            Run {run.id}
           </p>
-          <p>{props.run.code.description}</p>
+          <p>{run.code.description}</p>
         </div>
         <div className="column is-one-third p-0 has-text-right">
-          <p>{runState}</p>
+          <p>{run.state}</p>
         </div>
       </div>
       <div className="columns is-mobile">
         <div className="column is-two-thirds p-0">
           <p></p>
-          <p>{formatDate(props.run.date)}</p>
+          <p>{formatDate(run.date)}</p>
         </div>
         <div className="column is-one-third p-0 has-text-right">
-          <p className="tag">{props.run.code.commit_hash.slice(0,7)}</p>
+          <p className="tag">{run.code.commitHash.slice(0,7)}</p>
         </div>
       </div>
     </div>
   );
-}
+});
 
 
 export default App;
